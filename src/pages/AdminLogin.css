@@ -1,0 +1,91 @@
+.admin-login-container {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  position: relative;
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  border: none !important;
+  margin: 16px 0;
+  z-index: 1;
+}
+
+.admin-login-logo {
+  height: 50px;
+  width: auto;
+  margin-bottom: 12px;
+  max-width: 90%;
+}
+
+.admin-login-icon {
+  font-size: 40px;
+  color: #1e3c72;
+  margin-bottom: 12px;
+}
+
+.admin-login-title {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  margin-bottom: 8px !important;
+  font-size: clamp(1.25rem, 5vw, 1.75rem) !important;
+}
+
+.admin-login-subtitle {
+  font-size: clamp(0.875rem, 3vw, 1rem) !important;
+}
+
+.admin-login-input {
+  border-radius: 8px !important;
+}
+
+.admin-login-button {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  height: 48px !important;
+  font-size: 16px !important;
+}
+
+.admin-login-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.admin-login-footer {
+  width: 100%;
+  padding: 16px;
+  text-align: center;
+  margin-top: auto; /* Push to bottom if using flex-direction: column on container */
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.admin-login-footer-text {
+  color: white;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 576px) {
+  .admin-login-container {
+    padding: 16px;
+    justify-content: flex-start; /* Align to top on mobile to avoid keyboard issues */
+    padding-top: 40px;
+  }
+  
+  .admin-login-card {
+    box-shadow: none !important; /* Simplify on mobile */
+    background: rgba(255, 255, 255, 0.95);
+  }
+}

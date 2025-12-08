@@ -1,0 +1,58 @@
+.admin-users-panel {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.admin-users-panel .ant-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+}
+
+.admin-users-panel .ant-tabs-tab {
+  font-weight: 500;
+}
+
+.admin-users-panel .ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.admin-users-panel .ant-progress-inner {
+  height: 8px;
+}
+
+.admin-users-panel .ant-table-tbody > tr:hover {
+  cursor: pointer;
+}
+
+.admin-users-panel .ant-tag {
+  font-weight: 600;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.admin-users-panel .ant-statistic-title {
+  font-size: 14px;
+  color: #666;
+}
+
+.admin-users-panel .ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.admin-users-panel .ant-switch-checked {
+  background-color: #52c41a;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-users-panel {
+    padding: 12px;
+  }
+  
+  .admin-users-panel .ant-col {
+    margin-bottom: 12px;
+  }
+}

@@ -39,4 +39,4 @@ echo "🌐 Reiniciando Nginx..."
 sudo systemctl reload nginx
 
 echo "✅ Despliegue completado con éxito!"
-echo "Accede en: http://admin.vibratickets.com (o tu subdominio configurado)"
+echo "Accede en: http://admin.vibratickets.online (o tu subdominio configurado)"

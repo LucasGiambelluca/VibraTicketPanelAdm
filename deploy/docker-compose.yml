@@ -1,0 +1,138 @@
+# Docker Compose para VibraTickets (Alternativa al VPS tradicional)
+# Uso: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # MariaDB Database (en lugar de MySQL para consistencia)
+  mariadb:
+    image: mariadb:10.11
+    container_name: vibra-mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_change_me
+      MYSQL_DATABASE: ticketera
+      MYSQL_USER: vibra_user
+      MYSQL_PASSWORD: vibra_db_password_change_me
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: vibra-redis
+    restart: always
+    command: redis-server --requirepass vibra_redis_password_change_me --bind 0.0.0.0
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "vibra_redis_password_change_me", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Backend API
+  backend:
+    build:
+      context: ../ApiTickets
+      dockerfile: Dockerfile
+    container_name: vibra-backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: vibra_user
+      DB_PASSWORD: vibra_db_password_change_me
+      DB_NAME: ticketera
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: vibra_redis_password_change_me
+      JWT_SECRET: ${JWT_SECRET:-cambiar_esta_clave_super_secreta_jwt_de_64_caracteres}
+      SESSION_SECRET: ${SESSION_SECRET:-cambiar_esta_clave_super_secreta_session_diferente}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_PUBLIC_KEY: ${MP_PUBLIC_KEY:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-noreply@example.com}
+      BASE_URL: ${BASE_URL:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      HOLD_MINUTES: ${HOLD_MINUTES:-7}
+      QUEUE_MAX_SIZE: ${QUEUE_MAX_SIZE:-1000}
+      QUEUE_TIMEOUT_MINUTES: ${QUEUE_TIMEOUT_MINUTES:-15}
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads
+      - /var/log/vibra:/app/logs
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend (Nginx sirviendo archivos estáticos)
+  frontend:
+    build:
+      context: ../VibraTicketsFrontend
+      dockerfile: Dockerfile
+    container_name: vibra-frontend
+    restart: always
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/var/www/uploads:ro
+
+  # Certbot para SSL (opcional, descomentar si necesitas SSL)
+  # certbot:
+  #   image: certbot/certbot
+  #   container_name: vibra-certbot
+  #   volumes:
+  #     - certbot_data:/etc/letsencrypt
+  #     - certbot_www:/var/www/certbot
+  #   command: certonly --webroot --webroot-path=/var/www/certbot --email tu@email.com --agree-tos --no-eff-email -d tudominio.com -d www.tudominio.com
+  #   depends_on:
+  #     - frontend
+
+volumes:
+  mariadb_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+  # certbot_data:
+  #   driver: local
+  # certbot_www:
+  #   driver: local
+
+networks:
+  default:
+    name: vibra-network
+    driver: bridge

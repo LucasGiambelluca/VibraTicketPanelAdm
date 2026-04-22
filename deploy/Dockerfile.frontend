@@ -1,0 +1,36 @@
+# Dockerfile para el Frontend de VibraTickets
+FROM node:20-alpine AS builder
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Instalar pnpm
+RUN npm install -g pnpm
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# Instalar dependencias
+RUN pnpm install --frozen-lockfile
+
+# Copiar el resto del código
+COPY . .
+
+# Construir la aplicación
+RUN pnpm run build
+
+# Etapa de producción (Nginx)
+FROM nginx:alpine
+
+# Copiar la configuración de nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copiar los archivos estáticos desde el builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Exponer puerto
+EXPOSE 80
+
+# Comando de inicio
+CMD ["nginx", "-g", "daemon off;"]

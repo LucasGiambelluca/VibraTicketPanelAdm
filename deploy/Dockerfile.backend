@@ -1,0 +1,39 @@
+# Dockerfile para el Backend de VibraTickets
+FROM node:20-alpine
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias del sistema necesarias para bcrypt y sharp
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    curl \
+    vips-dev
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# Instalar pnpm
+RUN npm install -g pnpm
+
+# Instalar dependencias
+RUN pnpm install --frozen-lockfile --production
+
+# Copiar el resto del código
+COPY . .
+
+# Crear directorio de uploads
+RUN mkdir -p uploads logs
+
+# Exponer puerto
+EXPOSE 3000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Comando de inicio
+CMD ["node", "server.js"]

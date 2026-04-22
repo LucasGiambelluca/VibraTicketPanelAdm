@@ -1,41 +1,40 @@
 #!/bin/bash
 
 # Configuration
-PROJECT_ROOT="/var/www/vibratickets/admin"
-APP_DIR="$PROJECT_ROOT/source"
-TARGET_DIR="$PROJECT_ROOT/dist"
-BACKEND_URL="http://vibratickets.com"
+# Detect the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+APP_DIR="$(dirname "$SCRIPT_DIR")" # Assuming script is in /deploy folder
+TARGET_DIR="/var/www/vibratickets/admin/dist"
 
 echo "🚀 Iniciando despliegue de VibraTicket Admin Panel..."
+echo "📂 Directorio de la App: $APP_DIR"
 
 # 1. Navegar al directorio del código
-cd "$APP_DIR" || { echo "❌ Error: No se encontró el directorio $APP_DIR"; exit 1; }
+cd "$APP_DIR" || { echo "❌ Error: No se pudo acceder a $APP_DIR"; exit 1; }
 
-# 2. Actualizar código (opcional, si usas git)
-# echo "📥 Actualizando código desde Git..."
-# git pull
-
-# 3. Instalar dependencias
+# 2. Instalar dependencias
 echo "📦 Instalando dependencias con pnpm..."
 pnpm install --frozen-lockfile
 
-# 4. Construir el proyecto
+# 3. Construir el proyecto
 echo "🏗️ Construyendo el proyecto para producción..."
 pnpm build
 
-# 5. Desplegar archivos
+# 4. Desplegar archivos
 echo "📂 Desplegando archivos a $TARGET_DIR..."
-# Asegurarse de que el directorio existe
-mkdir -p "$TARGET_DIR"
+# Asegurarse de que el directorio de destino existe
+sudo mkdir -p "$TARGET_DIR"
+
 # Limpiar el directorio destino y copiar el nuevo build
-rm -rf "$TARGET_DIR/*"
-cp -r "$APP_DIR/dist/"* "$TARGET_DIR/"
+echo "🧹 Limpiando y copiando archivos..."
+sudo rm -rf "$TARGET_DIR/*"
+sudo cp -r "$APP_DIR/dist/"* "$TARGET_DIR/"
 
-# 6. Permisos
+# 5. Permisos
 echo "🔒 Ajustando permisos..."
-chown -R www-data:www-data "$TARGET_DIR"
+sudo chown -R www-data:www-data "$TARGET_DIR"
 
-# 7. Reiniciar Nginx (opcional si la config no cambió)
+# 6. Reiniciar Nginx
 echo "🌐 Reiniciando Nginx..."
 sudo systemctl reload nginx
 

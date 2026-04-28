@@ -211,7 +211,7 @@ export default function CreateEvent() {
                   label="Inicio del Evento"
                   rules={[{ required: true, message: 'Fecha de inicio requerida' }]}
                 >
-                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
+                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} inputReadOnly={false} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
@@ -231,7 +231,7 @@ export default function CreateEvent() {
                     }),
                   ]}
                 >
-                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
+                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} inputReadOnly={false} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
@@ -239,7 +239,7 @@ export default function CreateEvent() {
                   name="saleStart"
                   label="Inicio de Venta (Opcional)"
                 >
-                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
+                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} inputReadOnly={false} />
                 </Form.Item>
               </Col>
             </Row>

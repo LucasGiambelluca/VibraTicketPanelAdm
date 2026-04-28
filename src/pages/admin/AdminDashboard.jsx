@@ -64,6 +64,12 @@ export default function AdminDashboard() {
   const venuesHook = useVenues({ limit: 100, sortBy: 'name', sortOrder: 'ASC' });
   const { isLoaded: mapsLoaded } = useGoogleMaps();
 
+  // Estados para crear show - Centralizados aquí para que EventsAdmin y ShowsAdmin los compartan
+  const [createShowOpen, setCreateShowOpen] = useState(false);
+  const [createShowLoading, setCreateShowLoading] = useState(false);
+  const [createShowForm] = Form.useForm();
+  const [createShowEventId, setCreateShowEventId] = useState(null);
+
   // Debug: Mostrar rol del usuario
   useEffect(() => {
     }, [user]);
@@ -134,12 +140,28 @@ export default function AdminDashboard() {
 
   const renderContent = () => {
     switch (selectedMenu) {
-      case 'events':
-        return <EventsAdmin />;
-      case 'shows':
-        return <ShowsAdmin venuesHook={venuesHook} mapsLoaded={mapsLoaded} />;
       case 'venues':
-        return <VenuesAdmin />;
+        return <VenuesAdmin 
+          setCreateShowOpen={setCreateShowOpen} 
+          setCreateShowEventId={setCreateShowEventId} 
+        />;
+      case 'events':
+        return <EventsAdmin 
+          setCreateShowOpen={setCreateShowOpen} 
+          setCreateShowEventId={setCreateShowEventId} 
+        />;
+      case 'shows':
+        return <ShowsAdmin 
+          venuesHook={venuesHook} 
+          mapsLoaded={mapsLoaded}
+          createShowOpen={createShowOpen} 
+          setCreateShowOpen={setCreateShowOpen} 
+          createShowEventId={createShowEventId}
+          setCreateShowEventId={setCreateShowEventId}
+          createShowForm={createShowForm}
+          createShowLoading={createShowLoading}
+          setCreateShowLoading={setCreateShowLoading}
+        />;
       case 'banners':
         return <AdminBanners />;
       case 'reports':
@@ -157,7 +179,10 @@ export default function AdminDashboard() {
       case 'mercadopago':
         return <MercadoPagoConfig />;
       default:
-        return <EventsAdmin />;
+        return <EventsAdmin 
+          setCreateShowOpen={setCreateShowOpen} 
+          setCreateShowEventId={setCreateShowEventId} 
+        />;
     }
   };
 
@@ -253,7 +278,7 @@ export default function AdminDashboard() {
 
 
 // Events Admin
-function EventsAdmin() {
+function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
   const [open, setOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -560,7 +585,13 @@ function EventsAdmin() {
                 size="small" 
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => message.info('Función de crear show en desarrollo')}
+                onClick={() => {
+                  // Si estamos en EventsAdmin, podemos abrir un modal de creación de show 
+                  // o navegar a la pestaña de Shows con el evento preseleccionado.
+                  // Para consistencia, vamos a intentar abrir el modal de creación si existe.
+                  setCreateShowEventId(record.id);
+                  setCreateShowOpen(true);
+                }}
                 style={{ 
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   border: 'none'
@@ -592,7 +623,8 @@ function EventsAdmin() {
       form.resetFields();
 
       // Cargar shows del evento (contrato nuevo)
-      const shows = await showsApi.listShows({ eventId: Number(eventRecord.id) });
+      const res = await showsApi.listShows({ eventId: Number(eventRecord.id) });
+      const shows = res.data || res;
       const list = Array.isArray(shows) ? shows : (shows?.shows || []);
       setEventShows(list);
       if (list.length > 0) setSelectedShowId(list[0].id);
@@ -975,7 +1007,8 @@ function EventsAdmin() {
                 icon={<PlusOutlined />}
                 onClick={() => {
                   setAssignOpen(false);
-                  message.info('Función de crear show en desarrollo');
+                  setCreateShowEventId(selectedEvent?.id);
+                  setCreateShowOpen(true);
                 }}
                 style={{ 
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -1447,7 +1480,17 @@ function EventsAdmin() {
 }
 
 // Shows Admin
-function ShowsAdmin({ venuesHook, mapsLoaded }) {
+function ShowsAdmin({ 
+  venuesHook, 
+  mapsLoaded,
+  createShowOpen, 
+  setCreateShowOpen, 
+  createShowEventId, 
+  setCreateShowEventId,
+  createShowForm,
+  createShowLoading,
+  setCreateShowLoading
+}) {
   const screens = Grid.useBreakpoint();
   const [shows, setShows] = useState([]);
   const [events, setEvents] = useState([]);
@@ -1475,9 +1518,6 @@ function ShowsAdmin({ venuesHook, mapsLoaded }) {
   const [selectedSection, setSelectedSection] = useState(null);
   const [editSectionForm] = Form.useForm();
 
-  // Estado para crear show
-  const [createShowOpen, setCreateShowOpen] = useState(false);
-  
   // Cargar venues para el selector (desde props)
   const { venues, loading: venuesLoading, refetch: refetchVenues } = venuesHook;
 
@@ -1694,9 +1734,11 @@ function ShowsAdmin({ venuesHook, mapsLoaded }) {
       setAssignLoading(true);
       
       let createdCount = 0;
+      const errors = [];
+      
       for (const section of sections) {
         const sectionData = {
-          name: section.name,
+          name: section.name.trim(),
           kind: section.kind || 'GA',
           capacity: Number(section.capacity),
           priceCents: Math.round(Number(section.price) * 100)
@@ -1705,26 +1747,43 @@ function ShowsAdmin({ venuesHook, mapsLoaded }) {
         try {
           await showsApi.createSection(selectedShow.id, sectionData);
           createdCount++;
-          } catch (err) {
-          
+        } catch (err) {
           // Manejo específico de errores
-          let errorMessage = err.message || 'Error desconocido';
+          const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+          const errorCode = err.response?.data?.code;
           
-          if (errorMessage.includes('VenueCapacityExceeded')) {
-            errorMessage = `La capacidad total de las secciones excede la capacidad máxima del venue (${venueCapacity?.toLocaleString() || 'N/A'})`;
-          } else if (errorMessage.includes('DuplicateSectionName')) {
-            errorMessage = `Ya existe una sección con el nombre "${section.name}"`;
-          } else if (errorMessage.includes('InvalidCapacity')) {
-            errorMessage = `La capacidad de la sección "${section.name}" no es válida`;
+          if (errorCode === 'DuplicateSectionName' || errorMsg.includes('DuplicateSectionName')) {
+            errors.push(`"${section.name}": Ya existe en este show`);
+          } else if (errorCode === 'VenueCapacityExceeded' || errorMsg.includes('VenueCapacityExceeded')) {
+            errors.push(`"${section.name}": Excede la capacidad del venue`);
+          } else {
+            errors.push(`"${section.name}": ${errorMsg}`);
           }
-          
-          throw new Error(errorMessage);
         }
       }
 
-      message.success(`${createdCount} sección(es) creada(s) correctamente`);
-      setAssignOpen(false);
-      form.resetFields();
+      if (createdCount > 0) {
+        message.success(`${createdCount} sección(es) creada(s) correctamente`);
+      }
+      
+      if (errors.length > 0) {
+        message.error({
+          content: (
+            <div>
+              <div style={{ marginBottom: 8 }}>Errores al crear algunas secciones:</div>
+              {errors.map((err, i) => (
+                <div key={i} style={{ fontSize: 12, marginLeft: 8 }}>• {err}</div>
+              ))}
+            </div>
+          ),
+          duration: 8
+        });
+      }
+      
+      if (errors.length === 0) {
+        setAssignOpen(false);
+        form.resetFields();
+      }
       
       // Refrescar secciones
       const res = await showsApi.getShowSections(selectedShow.id);
@@ -2217,7 +2276,111 @@ function ShowsAdmin({ venuesHook, mapsLoaded }) {
             ))
           )}
         </div>
-      </Card>
+      {/* Modal Crear Nuevo Show */}
+      <Modal
+        title="Crear Nuevo Show"
+        open={createShowOpen}
+        onCancel={() => {
+          setCreateShowOpen(false);
+          createShowForm.resetFields();
+          setCreateShowEventId(null);
+        }}
+        footer={null}
+        centered
+        width={500}
+      >
+        <Form
+          form={createShowForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            try {
+              setCreateShowLoading(true);
+              const payload = {
+                eventId: values.eventId,
+                startsAt: values.startsAt.toISOString(),
+                venueId: values.venueId ? Number(values.venueId) : undefined
+              };
+              
+              await showsApi.createShow(payload);
+              message.success('Show creado correctamente');
+              setCreateShowOpen(false);
+              createShowForm.resetFields();
+              setCreateShowEventId(null);
+              loadAllShows();
+            } catch (err) {
+              const errorMsg = err.response?.data?.message || err.message || 'Error al crear show';
+              message.error(errorMsg);
+            } finally {
+              setCreateShowLoading(false);
+            }
+          }}
+          initialValues={{ eventId: createShowEventId }}
+        >
+          <Form.Item
+            name="eventId"
+            label="Evento"
+            rules={[{ required: true, message: 'Selecciona un evento' }]}
+            initialValue={createShowEventId}
+          >
+            <Select 
+              placeholder="Selecciona un evento" 
+              showSearch
+              optionFilterProp="children"
+            >
+              {events.map(e => (
+                <Select.Option key={e.id} value={e.id}>{e.name}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="startsAt"
+            label="Fecha y Hora de Inicio"
+            rules={[{ required: true, message: 'Selecciona fecha y hora' }]}
+          >
+            <DatePicker 
+              showTime 
+              format="YYYY-MM-DD HH:mm" 
+              style={{ width: '100%' }} 
+              inputReadOnly={false}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="venueId"
+            label="Venue (Opcional - por defecto usa el del evento)"
+          >
+            <Select 
+              placeholder="Cambiar venue para este show" 
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {venues.map(v => (
+                <Select.Option key={v.id} value={v.id}>{v.name}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <div style={{ marginTop: 24, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setCreateShowOpen(false)}>Cancelar</Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={createShowLoading}
+                style={{ 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  border: 'none'
+                }}
+              >
+                Crear Show
+              </Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+    </Card>
 
       {/* Modal Asignar Secciones */}
       <Modal
@@ -2537,6 +2700,7 @@ function ShowsAdmin({ venuesHook, mapsLoaded }) {
                     showTime 
                     style={{ width: '100%' }} 
                     format="DD/MM/YYYY HH:mm"
+                    inputReadOnly={false}
                   />
                 </Form.Item>
               </Col>
@@ -2708,7 +2872,8 @@ function ShowsAdmin({ venuesHook, mapsLoaded }) {
 }
 
 // Venues Admin
-function VenuesAdmin() {
+// Venues Admin
+function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
   const [open, setOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);

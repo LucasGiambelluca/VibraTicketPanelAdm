@@ -282,29 +282,24 @@ export default function ManageOrders() {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div>
+      <header className="page-header">
+        <span className="page-eyebrow">Ventas · pendientes</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Órdenes</h1>
+            <p className="page-subtitle">
+              Administrá y cancelá órdenes que quedaron en estado pendiente de pago.
+            </p>
+          </div>
+          <div className="page-actions">
+            <Button icon={<ReloadOutlined />} onClick={loadPendingOrders} loading={loading}>
+              Actualizar
+            </Button>
+          </div>
+        </div>
+      </header>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* Header */}
-        <Card>
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Title level={2} style={{ margin: 0 }}>
-                Gestión de Órdenes Pendientes
-              </Title>
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={loadPendingOrders}
-                loading={loading}
-              >
-                Actualizar
-              </Button>
-            </div>
-            <Text type="secondary">
-              Administra y cancela órdenes que están en estado pendiente de pago
-            </Text>
-          </Space>
-        </Card>
 
         {/* Estadísticas */}
         <Row gutter={16}>

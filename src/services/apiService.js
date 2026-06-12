@@ -838,6 +838,15 @@ export const adminApi = {
 
   testMercadoPagoConnection: () => {
     return apiClient.post(`${API_BASE}/admin/mercadopago/settings/test`);
+  },
+
+  // Login con Google: OAuth Client ID
+  getGoogleClientId: () => {
+    return apiClient.get(`${API_BASE}/admin/settings/google-client-id`);
+  },
+
+  setGoogleClientId: (googleClientId) => {
+    return apiClient.put(`${API_BASE}/admin/settings/google-client-id`, { googleClientId });
   }
 };
 

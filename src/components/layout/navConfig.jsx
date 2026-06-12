@@ -43,6 +43,7 @@ export const NAV_SECTIONS = [
       { key: 'users', label: 'Usuarios', icon: Users },
       { key: 'health', label: 'Salud', icon: Activity },
       { key: 'mercadopago', label: 'MercadoPago', icon: Sparkles },
+      { key: 'settings', label: 'Configuración', icon: Settings },
     ],
   },
 ];

@@ -36,6 +36,7 @@ import FinancialReports from './FinancialReports';
 import AdminUsersPanel from './AdminUsersPanel';
 import ManageOrders from './ManageOrders';
 import BoxOffice from './BoxOffice';
+import SettingsAdmin from './SettingsAdmin';
 import DiscountCodes from './DiscountCodes';
 import PaymentMonitor from './PaymentMonitor';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -175,6 +176,8 @@ export default function AdminDashboard() {
         return <HealthContent />;
       case 'mercadopago':
         return <MercadoPagoConfig />;
+      case 'settings':
+        return <SettingsAdmin />;
       default:
         return <DashboardHome onNavigate={setSelectedMenu} />;
     }

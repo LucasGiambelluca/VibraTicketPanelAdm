@@ -58,18 +58,24 @@ const { Option } = Select;
 export default function AdminDashboard() {
   const [selectedMenu, setSelectedMenu] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
-  
+
   // Hooks
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  
+
+  // BOLETERIA: role arrives async (user is null on first render until useAuth useEffect fires)
+  const isBoleteria = user?.role === 'BOLETERIA';
+
+  // When role arrives and we're still on the default 'dashboard', switch to 'boxoffice'
+  useEffect(() => {
+    if (user?.role === 'BOLETERIA' && selectedMenu === 'dashboard') {
+      setSelectedMenu('boxoffice');
+    }
+  }, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Shared Hooks for children
   const venuesHook = useVenues({ limit: 100, sortBy: 'name', sortOrder: 'ASC' });
   const { isLoaded: mapsLoaded } = useGoogleMaps();
-
-  // Debug: Mostrar rol del usuario
-  useEffect(() => {
-    }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -136,6 +142,9 @@ export default function AdminDashboard() {
   ];
 
   const renderContent = () => {
+    // BOLETERIA can only access BoxOffice regardless of selectedMenu
+    if (isBoleteria) return <BoxOffice />;
+
     switch (selectedMenu) {
       case 'dashboard':
         return <DashboardHome onNavigate={setSelectedMenu} />;

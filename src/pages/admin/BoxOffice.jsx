@@ -56,7 +56,11 @@ export default function BoxOffice() {
       setSeats(seatsData ? (seatsData.seats || []) : []);
       // getTicketTypes devuelve {event, ticketTypes:[{id,name,price_cents,...}]}
       const typesData = typesRes.status === 'fulfilled' ? typesRes.value.data : null;
-      setTicketTypes(typesData ? (typesData.ticketTypes || []) : []);
+      const types = typesData ? (typesData.ticketTypes || []) : [];
+      setTicketTypes(types);
+      // Sin ticket types no hay tab "Entrada general" (los GA de estos eventos
+      // son sectores con pseudo-asientos, se venden desde la tab Asientos)
+      if (types.length === 0) setMode('seats');
     } finally {
       setLoadingSeats(false);
     }
@@ -69,11 +73,26 @@ export default function BoxOffice() {
     return map;
   }, [seats]);
 
+  // Sector GA = pseudo-asientos sin fila (GA1..GAn): se vende por cantidad,
+  // no asiento por asiento. Sector numerado = grilla de tags.
+  const isGaSector = (sectorSeats) => sectorSeats.every(s => s.rowLabel == null);
+
   const toggleSeat = (seat) => {
     if (seat.status !== 'AVAILABLE') return;
     setSelectedSeats(prev =>
       prev.includes(seat.id) ? prev.filter(i => i !== seat.id) : [...prev, seat.id]
     );
+  };
+
+  // Cantidad para un sector GA: reemplaza la selección de ese sector por los
+  // primeros N asientos libres (el cliente no elige cuál pseudo-asiento).
+  const setGaSectorQty = (sectorSeats, qty) => {
+    const sectorIds = new Set(sectorSeats.map(s => s.id));
+    const picked = sectorSeats
+      .filter(s => s.status === 'AVAILABLE')
+      .slice(0, qty || 0)
+      .map(s => s.id);
+    setSelectedSeats(prev => [...prev.filter(id => !sectorIds.has(id)), ...picked]);
   };
 
   const [customer, setCustomer] = useState({ name: '', dni: '', email: '' });
@@ -264,10 +283,12 @@ export default function BoxOffice() {
         <Card
           title="2. Entradas"
           extra={
-            <Radio.Group value={mode} onChange={e => setMode(e.target.value)}>
-              <Radio.Button value="seats">Asientos</Radio.Button>
-              <Radio.Button value="ga">Entrada general</Radio.Button>
-            </Radio.Group>
+            ticketTypes.length > 0 && (
+              <Radio.Group value={mode} onChange={e => setMode(e.target.value)}>
+                <Radio.Button value="seats">Asientos</Radio.Button>
+                <Radio.Button value="ga">Entrada general</Radio.Button>
+              </Radio.Group>
+            )
           }
           style={{ marginBottom: 16 }}
         >
@@ -275,33 +296,62 @@ export default function BoxOffice() {
             <Spin />
           ) : mode === 'seats' ? (
             Object.keys(seatsBySector).length === 0 ? (
-              <Text type="secondary">Este show no tiene asientos numerados.</Text>
+              <Text type="secondary">Este show no tiene entradas configuradas (sin asientos ni sectores).</Text>
             ) : (
-              Object.entries(seatsBySector).map(([sector, sectorSeats]) => (
-                <div key={sector} style={{ marginBottom: 12 }}>
-                  <Divider orientation="left" plain>
-                    Sector {sector}
-                  </Divider>
-                  <Space wrap size={[4, 4]}>
-                    {sectorSeats.map(seat => (
-                      <Tag.CheckableTag
-                        key={seat.id}
-                        checked={selectedSeats.includes(seat.id)}
-                        onChange={() => toggleSeat(seat)}
-                        style={{
-                          border: '1px solid #d9d9d9',
-                          userSelect: 'none',
-                          opacity: seat.status === 'AVAILABLE' ? 1 : 0.3,
-                          cursor: seat.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
-                        }}
-                      >
-                        {/* Campos camelCase: rowLabel, seatNumber */}
-                        {seat.rowLabel}-{seat.seatNumber}
-                      </Tag.CheckableTag>
-                    ))}
-                  </Space>
-                </div>
-              ))
+              Object.entries(seatsBySector).map(([sector, sectorSeats]) => {
+                if (isGaSector(sectorSeats)) {
+                  const libres = sectorSeats.filter(s => s.status === 'AVAILABLE');
+                  const enCarrito = sectorSeats.filter(s => selectedSeats.includes(s.id)).length;
+                  const precio = Number(libres[0]?.priceCents ?? sectorSeats[0]?.priceCents ?? 0);
+                  return (
+                    <div key={sector} style={{ marginBottom: 12 }}>
+                      <Divider orientation="left" plain>
+                        Sector {sector} (entrada general)
+                      </Divider>
+                      <Space size="large" wrap>
+                        <Text strong>
+                          {precio > 0 ? `$${(precio / 100).toLocaleString('es-AR')}` : 'precio al confirmar'}
+                        </Text>
+                        <Text type="secondary">{libres.length} disponibles</Text>
+                        <Space>
+                          <Text>Cantidad:</Text>
+                          <InputNumber
+                            min={0}
+                            max={libres.length}
+                            value={enCarrito}
+                            onChange={v => setGaSectorQty(sectorSeats, v)}
+                          />
+                        </Space>
+                      </Space>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={sector} style={{ marginBottom: 12 }}>
+                    <Divider orientation="left" plain>
+                      Sector {sector}
+                    </Divider>
+                    <Space wrap size={[4, 4]}>
+                      {sectorSeats.map(seat => (
+                        <Tag.CheckableTag
+                          key={seat.id}
+                          checked={selectedSeats.includes(seat.id)}
+                          onChange={() => toggleSeat(seat)}
+                          style={{
+                            border: '1px solid #d9d9d9',
+                            userSelect: 'none',
+                            opacity: seat.status === 'AVAILABLE' ? 1 : 0.3,
+                            cursor: seat.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          {/* Campos camelCase: rowLabel, seatNumber */}
+                          {seat.rowLabel ? `${seat.rowLabel}-${seat.seatNumber}` : seat.seatNumber}
+                        </Tag.CheckableTag>
+                      ))}
+                    </Space>
+                  </div>
+                );
+              })
             )
           ) : (
             <List

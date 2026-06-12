@@ -1172,6 +1172,16 @@ export const testPaymentsApi = {
   }
 };
 
+// --- Boletería presencial ---
+export const boxofficeApi = {
+  // Venta de asientos: { showId, seatIds, paymentMethod, customer }
+  // Venta GA: { eventId, items: [{ticketTypeId, quantity}], paymentMethod, customer }
+  createOrder: (payload) => apiClient.post('/boxoffice/orders', payload),
+  getOrderTickets: (orderId) => apiClient.get(`/boxoffice/orders/${orderId}/tickets`),
+  getTicketFgl: (kind, id) => apiClient.get(`/boxoffice/tickets/${String(kind).toLowerCase()}/${id}/fgl`),
+  logPrint: (payload) => apiClient.post('/boxoffice/print-logs', payload),
+};
+
 // Export default con todas las APIs
 export default {
   auth: authApi,
@@ -1200,5 +1210,6 @@ export default {
   paymentConfig: paymentConfigApi,
   testPayments: testPaymentsApi,
   homepageBanners: homepageBannersApi,
+  boxoffice: boxofficeApi,
   utils: apiUtils
 };

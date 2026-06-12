@@ -44,6 +44,14 @@ export default function ManageOrders() {
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [reprintingOrderId, setReprintingOrderId] = useState(null);
 
+  // Status configuration for both desktop and mobile views
+  const statusConfig = {
+    PENDING: { color: 'warning', text: 'Pendiente' },
+    PAID: { color: 'success', text: 'Pagada' },
+    CANCELLED: { color: 'default', text: 'Cancelada' },
+    EXPIRED: { color: 'error', text: 'Expirada' }
+  };
+
   // Cargar órdenes pendientes al montar el componente
   useEffect(() => {
     loadPendingOrders();
@@ -206,15 +214,7 @@ export default function ManageOrders() {
       key: 'status',
       width: 120,
       render: (status) => {
-        const statusConfig = {
-          PENDING: { color: 'warning', text: 'Pendiente' },
-          PAID: { color: 'success', text: 'Pagada' },
-          CANCELLED: { color: 'default', text: 'Cancelada' },
-          EXPIRED: { color: 'error', text: 'Expirada' }
-        };
-        
         const config = statusConfig[status] || { color: 'default', text: status };
-        
         return <Tag color={config.color}>{config.text}</Tag>;
       },
       filters: [
@@ -422,9 +422,10 @@ export default function ManageOrders() {
                   key={order.orderId}
                   title={order.eventName}
                   badge={
-                    <Tag color="orange">
-                      PENDING
-                    </Tag>
+                    (() => {
+                      const config = statusConfig[order.status] || { color: 'default', text: order.status };
+                      return <Tag color={config.color}>{config.text}</Tag>;
+                    })()
                   }
                   details={[
                     { 

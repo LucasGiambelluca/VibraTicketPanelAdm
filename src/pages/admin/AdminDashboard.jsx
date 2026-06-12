@@ -35,6 +35,7 @@ import AdminBanners from './AdminBanners';
 import FinancialReports from './FinancialReports';
 import AdminUsersPanel from './AdminUsersPanel';
 import ManageOrders from './ManageOrders';
+import BoxOffice from './BoxOffice';
 import DiscountCodes from './DiscountCodes';
 import PaymentMonitor from './PaymentMonitor';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -155,6 +156,8 @@ export default function AdminDashboard() {
         return <AdminUsersPanel />;
       case 'orders':
         return <ManageOrders />;
+      case 'boxoffice':
+        return <BoxOffice />;
       case 'discount-codes':
         return <DiscountCodes />;
       case 'payments-monitor':

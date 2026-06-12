@@ -31,6 +31,7 @@ export const NAV_SECTIONS = [
     label: 'Ventas',
     items: [
       { key: 'orders', label: 'Órdenes', icon: ShoppingBag },
+      { key: 'boxoffice', label: 'Boletería', icon: Ticket },
       { key: 'discount-codes', label: 'Códigos', icon: TicketPercent },
       { key: 'payments-monitor', label: 'Pagos', icon: CreditCard },
     ],

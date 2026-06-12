@@ -9,6 +9,7 @@ import RegisterModal from './components/RegisterModal';
 import AdminLogin from './pages/AdminLogin';
 import ForgotPassword from './pages/ForgotPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import VenueLayoutBuilder from './pages/VenueLayoutBuilder';
 
 function App() {
   return (
@@ -19,8 +20,16 @@ function App() {
             <Routes>
               <Route path="/login" element={<AdminLogin />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route 
-                path="/admin/*" 
+              <Route
+                path="/admin/venues/:venueId/layout"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR']}>
+                    <VenueLayoutBuilder />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/*"
                 element={
                   <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR']}>
                     <AdminDashboard />

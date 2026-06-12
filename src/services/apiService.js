@@ -326,7 +326,10 @@ export const bannersApi = {
   // Crear banner
   create: (bannerData) => {
     // bannerData: FormData con title, link, image, priority
-    return apiClient.postFormData(`${API_BASE}/api/homepage/banners`, bannerData);
+    // apiClient es axios crudo (sin .postFormData); usar post + header multipart.
+    return apiClient.post(`${API_BASE}/api/homepage/banners`, bannerData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
 
   // Reordenar banners
@@ -390,6 +393,11 @@ export const showsApi = {
   // Eliminar show (admin)
   deleteShow: (showId) => {
     return apiClient.delete(`${API_BASE}/shows/${showId}`);
+  },
+
+  // Duplicar una función: copia secciones, precios y asientos de la función base
+  duplicateShow: (showId, { startsAt, endsAt } = {}) => {
+    return apiClient.post(`${API_BASE}/shows/${showId}/duplicate`, { startsAt, endsAt });
   },
 
   // Backward compatibility: listar shows por evento (si existiera esa ruta)
@@ -914,6 +922,29 @@ export const venuesApi = {
   deleteVenue: (venueId) => {
     return apiClient.delete(`${API_BASE}/venues/${venueId}`);
   }
+};
+
+// Venue Layout API
+export const venueLayoutApi = {
+  getLayout: (venueId) =>
+    apiClient.get(`${API_BASE}/venues/${venueId}/layout`),
+  createSector: (venueId, body) =>
+    apiClient.post(`${API_BASE}/venues/${venueId}/sectors`, body),
+  updateSector: (venueId, sectorId, body) =>
+    apiClient.put(`${API_BASE}/venues/${venueId}/sectors/${sectorId}`, body),
+  deleteSector: (venueId, sectorId) =>
+    apiClient.delete(`${API_BASE}/venues/${venueId}/sectors/${sectorId}`),
+  setViewbox: (venueId, viewbox) =>
+    apiClient.put(`${API_BASE}/venues/${venueId}/layout`, { viewbox }),
+  uploadLayoutImage: (venueId, file) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    // NOTE: apiClient is a raw axios instance and has no .postFormData method.
+    // Use the established multipart pattern already used elsewhere in this file.
+    return apiClient.post(`${API_BASE}/venues/${venueId}/layout-image`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Banners API

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Typography, Button, Table, Space, Form, Input, Modal, Card, Select, DatePicker, Upload, message, Tag, Row, Col, Statistic, Avatar, Spin, Divider, Grid, Dropdown } from 'antd';
+import AdminShell from '../../components/layout/AdminShell';
+import DashboardHome from './DashboardHome';
 import { 
   DashboardOutlined, 
   CalendarOutlined, 
@@ -24,7 +26,7 @@ import {
 } from '@ant-design/icons';
 import CreateEvent from '../../components/CreateEvent';
 import CreateVenue from '../../components/CreateVenue';
-import CreateShow from '../../components/CreateShow';
+import EventFunctions from '../../components/EventFunctions';
 import VenueMap from '../../components/VenueMap';
 import MercadoPagoConfig from '../../components/MercadoPagoConfig';
 import EventImageUpload from '../../components/EventImageUpload';
@@ -53,7 +55,7 @@ const { Sider, Content, Header } = Layout;
 const { Option } = Select;
 
 export default function AdminDashboard() {
-  const [selectedMenu, setSelectedMenu] = useState('events');
+  const [selectedMenu, setSelectedMenu] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
   
   // Hooks
@@ -63,12 +65,6 @@ export default function AdminDashboard() {
   // Shared Hooks for children
   const venuesHook = useVenues({ limit: 100, sortBy: 'name', sortOrder: 'ASC' });
   const { isLoaded: mapsLoaded } = useGoogleMaps();
-
-  // Estados para crear show - Centralizados aquí para que EventsAdmin y ShowsAdmin los compartan
-  const [createShowOpen, setCreateShowOpen] = useState(false);
-  const [createShowLoading, setCreateShowLoading] = useState(false);
-  const [createShowForm] = Form.useForm();
-  const [createShowEventId, setCreateShowEventId] = useState(null);
 
   // Debug: Mostrar rol del usuario
   useEffect(() => {
@@ -140,27 +136,16 @@ export default function AdminDashboard() {
 
   const renderContent = () => {
     switch (selectedMenu) {
+      case 'dashboard':
+        return <DashboardHome onNavigate={setSelectedMenu} />;
       case 'venues':
-        return <VenuesAdmin 
-          setCreateShowOpen={setCreateShowOpen} 
-          setCreateShowEventId={setCreateShowEventId} 
-        />;
+        return <VenuesAdmin />;
       case 'events':
-        return <EventsAdmin 
-          setCreateShowOpen={setCreateShowOpen} 
-          setCreateShowEventId={setCreateShowEventId} 
-        />;
+        return <EventsAdmin />;
       case 'shows':
-        return <ShowsAdmin 
-          venuesHook={venuesHook} 
+        return <ShowsAdmin
+          venuesHook={venuesHook}
           mapsLoaded={mapsLoaded}
-          createShowOpen={createShowOpen} 
-          setCreateShowOpen={setCreateShowOpen} 
-          createShowEventId={createShowEventId}
-          setCreateShowEventId={setCreateShowEventId}
-          createShowForm={createShowForm}
-          createShowLoading={createShowLoading}
-          setCreateShowLoading={setCreateShowLoading}
         />;
       case 'banners':
         return <AdminBanners />;
@@ -179,106 +164,21 @@ export default function AdminDashboard() {
       case 'mercadopago':
         return <MercadoPagoConfig />;
       default:
-        return <EventsAdmin 
-          setCreateShowOpen={setCreateShowOpen} 
-          setCreateShowEventId={setCreateShowEventId} 
-        />;
+        return <DashboardHome onNavigate={setSelectedMenu} />;
     }
   };
 
-  // Handlers de crear show están dentro de EventsAdmin
-
-  // NOTE: handlers de asignación se definen dentro de EventsAdmin
-
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-      {/* Sidebar */}
-      <Sider 
-        collapsible 
-        collapsed={collapsed} 
-        onCollapse={setCollapsed}
-        breakpoint="lg"
-        collapsedWidth="0"
-        style={{
-          background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
-          zIndex: 1000
-        }}
-      >
-        <div style={{ 
-          padding: '16px', 
-          textAlign: 'center',
-          borderBottom: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          {!collapsed ? (
-            <img src={logo} alt="VibraTicket" style={{ height: 40, width: 'auto' }} />
-          ) : (
-            <Title level={4} style={{ color: 'white', margin: 0 }}>
-              AP
-            </Title>
-          )}
-        </div>
-        
-        <Menu
-          theme="dark"
-          selectedKeys={[selectedMenu]}
-          mode="inline"
-          items={menuItems}
-          onClick={({ key }) => setSelectedMenu(key)}
-          style={{ 
-            background: 'transparent',
-            border: 'none'
-          }}
-        />
-        
-        <div style={{ 
-          position: 'absolute', 
-          bottom: 0, 
-          left: 16, 
-          right: 16 
-        }}>
-          <Button 
-            type="text" 
-            icon={<LogoutOutlined />} 
-            style={{ color: 'white', width: '100%' }}
-            onClick={handleLogout}
-          >
-            {!collapsed && 'Cerrar Sesión'}
-          </Button>
-        </div>
-      </Sider>
-
-      {/* Main Content */}
-      <Layout>
-        <Header style={{ 
-          background: 'white', 
-          padding: '0 24px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          display: 'flex',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Title level={4} style={{ margin: 0, textTransform: 'capitalize', fontSize: '1.1rem' }}>
-              {selectedMenu === 'dashboard' ? 'Panel' : selectedMenu}
-            </Title>
-          </div>
-          <Space>
-            <Avatar icon={<UserOutlined />} />
-            <Text strong style={{ display: window.innerWidth < 768 ? 'none' : 'inline' }}>Admin</Text>
-          </Space>
-        </Header>
-        
-        <Content style={{ margin: '24px', background: 'transparent' }}>
-          {renderContent()}
-        </Content>
-      </Layout>
-    </Layout>
+    <AdminShell selectedKey={selectedMenu} onNavigate={setSelectedMenu}>
+      {renderContent()}
+    </AdminShell>
   );
 }
 
 
 
 // Events Admin
-function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
+function EventsAdmin() {
   const [open, setOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -581,25 +481,7 @@ function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
               />
             </Space>
             <Space style={{ width: '100%' }}>
-              <Button 
-                size="small" 
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  // Si estamos en EventsAdmin, podemos abrir un modal de creación de show 
-                  // o navegar a la pestaña de Shows con el evento preseleccionado.
-                  // Para consistencia, vamos a intentar abrir el modal de creación si existe.
-                  setCreateShowEventId(record.id);
-                  setCreateShowOpen(true);
-                }}
-                style={{ 
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  border: 'none'
-                }}
-              >
-                Nuevo Show
-              </Button>
-              <Button 
+              <Button
                 size="small"
                 onClick={() => handleAssignTickets(record)}
               >
@@ -788,20 +670,28 @@ function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
   };
   
   return (
-    <Card className="mobile-compact-card">
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <Title level={4} className="mobile-compact-title">Gestión de Eventos</Title>
-        <Space className="mobile-actions-row">
-          <Button icon={<PlusOutlined />} type="primary" onClick={() => setOpen(true)}>
-            Nuevo Evento
-          </Button>
-          <Button>Exportar</Button>
-        </Space>
-      </div>
-      
-      <Table 
-        rowKey="id" 
-        columns={buildColumns()} 
+    <div>
+      <header className="page-header">
+        <span className="page-eyebrow">Catálogo · cartelera</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Eventos</h1>
+            <p className="page-subtitle">
+              Creá eventos, asigná funciones, configurá secciones e imágenes.
+            </p>
+          </div>
+          <div className="page-actions">
+            <Button>Exportar</Button>
+            <Button icon={<PlusOutlined />} type="primary" onClick={() => setOpen(true)}>
+              Nuevo evento
+            </Button>
+          </div>
+        </div>
+      </header>
+    <Card>
+      <Table
+        rowKey="id"
+        columns={buildColumns()}
         dataSource={events}
         loading={loading}
         scroll={{ x: 'max-content' }}
@@ -1000,23 +890,8 @@ function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
                 Este evento no tiene shows creados
               </Text>
               <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-                Primero debes crear un show para poder asignar entradas
+                Agregá una función desde la edición del evento (sección "Funciones")
               </Text>
-              <Button 
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setAssignOpen(false);
-                  setCreateShowEventId(selectedEvent?.id);
-                  setCreateShowOpen(true);
-                }}
-                style={{ 
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  border: 'none'
-                }}
-              >
-                Crear Show Ahora
-              </Button>
             </div>
           )}
           
@@ -1247,6 +1122,12 @@ function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
             </Form.Item>
           </Form>
         )}
+        {editModalOpen && selectedEvent && (
+          <>
+            <Divider style={{ margin: '16px 0' }} />
+            <EventFunctions eventId={selectedEvent.id} />
+          </>
+        )}
       </Modal>
 
       {/* Modal de Visualización de Evento */}
@@ -1476,20 +1357,14 @@ function EventsAdmin({ setCreateShowOpen, setCreateShowEventId }) {
         )}
       </Modal>
     </Card>
+    </div>
   );
 }
 
 // Shows Admin
-function ShowsAdmin({ 
-  venuesHook, 
-  mapsLoaded,
-  createShowOpen, 
-  setCreateShowOpen, 
-  createShowEventId, 
-  setCreateShowEventId,
-  createShowForm,
-  createShowLoading,
-  setCreateShowLoading
+function ShowsAdmin({
+  venuesHook,
+  mapsLoaded
 }) {
   const screens = Grid.useBreakpoint();
   const [shows, setShows] = useState([]);
@@ -2152,52 +2027,39 @@ function ShowsAdmin({
   
   return (
     <div className="fade-in">
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={2} style={{ margin: 0, color: '#000' }} className="mobile-compact-title">
-            <TeamOutlined style={{ marginRight: 12, color: '#667eea' }} />
-            Gestión de Shows
-          </Title>
-          <Text style={{ color: 'rgba(0,0,0,0.7)' }}>Administra las funciones y fechas de tus eventos</Text>
+      <header className="page-header">
+        <span className="page-eyebrow">Cartelera · funciones</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Shows</h1>
+            <p className="page-subtitle">
+              Funciones y fechas de cada evento. Asigná venue y configurá secciones.
+            </p>
+          </div>
+          <div className="page-actions">
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadAllShows}
+            >
+              Refrescar
+            </Button>
+          </div>
         </div>
-        <Space className="mobile-actions-row">
-          <Button 
-            icon={<PlusOutlined />} 
-            type="primary"
-            size="large"
-            onClick={() => setCreateShowOpen(true)}
-            style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
-            }}
-          >
-            Nuevo Show
-          </Button>
-          <Button 
-            icon={<ReloadOutlined />}
-            size="large"
-            onClick={loadAllShows}
-            className="glass-button"
-          >
-            Refrescar
-          </Button>
-        </Space>
-      </div>
-      
+      </header>
+
       {error && (
-        <div style={{ 
+        <div style={{
           marginBottom: 24,
           padding: '16px',
-          background: 'rgba(255, 77, 79, 0.15)',
-          border: '1px solid rgba(255, 77, 79, 0.3)',
-          borderRadius: '12px'
+          background: 'var(--color-danger-soft)',
+          border: '1px solid var(--color-danger)',
+          borderRadius: 'var(--radius-md)'
         }}>
           <Text type="danger">Error: {error}</Text>
         </div>
       )}
-      
-      <Card className="glass-card" bordered={false} style={{ borderRadius: 16 }}>
+
+      <Card>
         <Table 
           rowKey="id" 
           columns={columns} 
@@ -2276,110 +2138,6 @@ function ShowsAdmin({
             ))
           )}
         </div>
-      {/* Modal Crear Nuevo Show */}
-      <Modal
-        title="Crear Nuevo Show"
-        open={createShowOpen}
-        onCancel={() => {
-          setCreateShowOpen(false);
-          createShowForm.resetFields();
-          setCreateShowEventId(null);
-        }}
-        footer={null}
-        centered
-        width={500}
-      >
-        <Form
-          form={createShowForm}
-          layout="vertical"
-          onFinish={async (values) => {
-            try {
-              setCreateShowLoading(true);
-              const payload = {
-                eventId: values.eventId,
-                startsAt: values.startsAt.toISOString(),
-                venueId: values.venueId ? Number(values.venueId) : undefined
-              };
-              
-              await showsApi.createShow(payload);
-              message.success('Show creado correctamente');
-              setCreateShowOpen(false);
-              createShowForm.resetFields();
-              setCreateShowEventId(null);
-              loadAllShows();
-            } catch (err) {
-              const errorMsg = err.response?.data?.message || err.message || 'Error al crear show';
-              message.error(errorMsg);
-            } finally {
-              setCreateShowLoading(false);
-            }
-          }}
-          initialValues={{ eventId: createShowEventId }}
-        >
-          <Form.Item
-            name="eventId"
-            label="Evento"
-            rules={[{ required: true, message: 'Selecciona un evento' }]}
-            initialValue={createShowEventId}
-          >
-            <Select 
-              placeholder="Selecciona un evento" 
-              showSearch
-              optionFilterProp="children"
-            >
-              {events.map(e => (
-                <Select.Option key={e.id} value={e.id}>{e.name}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="startsAt"
-            label="Fecha y Hora de Inicio"
-            rules={[{ required: true, message: 'Selecciona fecha y hora' }]}
-          >
-            <DatePicker 
-              showTime 
-              format="YYYY-MM-DD HH:mm" 
-              style={{ width: '100%' }} 
-              inputReadOnly={false}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="venueId"
-            label="Venue (Opcional - por defecto usa el del evento)"
-          >
-            <Select 
-              placeholder="Cambiar venue para este show" 
-              allowClear
-              showSearch
-              optionFilterProp="children"
-            >
-              {venues.map(v => (
-                <Select.Option key={v.id} value={v.id}>{v.name}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <div style={{ marginTop: 24, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setCreateShowOpen(false)}>Cancelar</Button>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                loading={createShowLoading}
-                style={{ 
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  border: 'none'
-                }}
-              >
-                Crear Show
-              </Button>
-            </Space>
-          </div>
-        </Form>
-      </Modal>
     </Card>
 
       {/* Modal Asignar Secciones */}
@@ -2873,7 +2631,7 @@ function ShowsAdmin({
 
 // Venues Admin
 // Venues Admin
-function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
+function VenuesAdmin() {
   const [open, setOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -2881,7 +2639,8 @@ function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [editForm] = Form.useForm();
   const screens = Grid.useBreakpoint();
-  
+  const navigate = useNavigate();
+
   // Usar el hook useVenues para obtener datos reales
   const { venues, loading, error, deleteVenue, loadVenues, refetch } = useVenues({
     limit: 100,
@@ -2975,6 +2734,12 @@ function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
               onClick: () => handleEditVenue(record)
             },
             {
+              key: 'layout',
+              label: 'Editar plano',
+              icon: <EnvironmentOutlined />,
+              onClick: () => navigate(`/admin/venues/${record.id}/layout`)
+            },
+            {
               type: 'divider'
             },
             {
@@ -2999,14 +2764,21 @@ function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
               size="small"
               onClick={() => handleViewVenue(record)}
             />
-            <Button 
-              icon={<EditOutlined />} 
-              size="small" 
+            <Button
+              icon={<EditOutlined />}
+              size="small"
               type="primary"
               onClick={() => handleEditVenue(record)}
             />
-            <Button 
-              icon={<DeleteOutlined />} 
+            <Button
+              icon={<EnvironmentOutlined />}
+              size="small"
+              onClick={() => navigate(`/admin/venues/${record.id}/layout`)}
+            >
+              Plano
+            </Button>
+            <Button
+              icon={<DeleteOutlined />}
               size="small" 
               danger 
               onClick={() => handleDeleteVenue(record.id)}
@@ -3076,16 +2848,25 @@ function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
   };
 
   return (
-    <Card className="mobile-compact-card">
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <Title level={4} className="mobile-compact-title">Gestión de Venues</Title>
-        <Space className="mobile-actions-row">
-          <Button icon={<PlusOutlined />} type="primary" onClick={() => setOpen(true)}>
-            Nuevo Venue
-          </Button>
-          <Button onClick={refetch}>Refrescar</Button>
-        </Space>
-      </div>
+    <div>
+      <header className="page-header">
+        <span className="page-eyebrow">Plazas · ubicaciones</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Venues</h1>
+            <p className="page-subtitle">
+              Plazas, teatros y estadios donde se producen los shows.
+            </p>
+          </div>
+          <div className="page-actions">
+            <Button onClick={refetch}>Refrescar</Button>
+            <Button icon={<PlusOutlined />} type="primary" onClick={() => setOpen(true)}>
+              Nuevo venue
+            </Button>
+          </div>
+        </div>
+      </header>
+    <Card>
       
       {error && (
         <div style={{ 
@@ -3530,6 +3311,7 @@ function VenuesAdmin({ setCreateShowOpen, setCreateShowEventId }) {
         )}
       </Modal>
     </Card>
+    </div>
   );
 }
 

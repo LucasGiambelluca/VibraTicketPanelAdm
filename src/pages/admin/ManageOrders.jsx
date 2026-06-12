@@ -15,16 +15,18 @@ import {
   Row,
   Col
 } from 'antd';
-import { 
-  DeleteOutlined, 
-  ReloadOutlined, 
+import {
+  DeleteOutlined,
+  ReloadOutlined,
   ExclamationCircleOutlined,
   DollarOutlined,
   ShoppingCartOutlined,
   UserOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
-import { manageOrdersApi } from '../../services/apiService';
+import { manageOrdersApi, boxofficeApi } from '../../services/apiService';
+import { agentPrint, getAgentUrl } from '../../services/printAgentService';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
@@ -40,6 +42,7 @@ export default function ManageOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [reprintingOrderId, setReprintingOrderId] = useState(null);
 
   // Cargar órdenes pendientes al montar el componente
   useEffect(() => {
@@ -143,6 +146,35 @@ export default function ManageOrders() {
         }
       }
     });
+  };
+
+  // Reimprimir tickets de una orden (will-call)
+  const reprintOrder = async (orderId) => {
+    setReprintingOrderId(orderId);
+    try {
+      const { data } = await boxofficeApi.getOrderTickets(orderId);
+      if (!data.tickets?.length) {
+        message.info('La orden no tiene tickets emitidos');
+        return;
+      }
+      let okCount = 0;
+      for (const t of data.tickets) {
+        try {
+          const { data: fglRes } = await boxofficeApi.getTicketFgl(t.kind, t.id);
+          await agentPrint(fglRes.fgl);
+          await boxofficeApi.logPrint({ ticketKind: t.kind, ticketId: t.id, orderId, status: 'OK', printerName: getAgentUrl() }).catch(() => {});
+          okCount++;
+        } catch (e) {
+          await boxofficeApi.logPrint({ ticketKind: t.kind, ticketId: t.id, orderId, status: 'FAILED', errorDetail: String(e.message).slice(0, 400) }).catch(() => {});
+          message.error(`Ticket ${t.id}: ${e.message}`);
+        }
+      }
+      if (okCount > 0) message.success(`${okCount}/${data.tickets.length} ticket(s) impresos`);
+    } catch (e) {
+      message.error(`Error obteniendo tickets: ${e.response?.data?.message || e.message}`);
+    } finally {
+      setReprintingOrderId(null);
+    }
   };
 
   // Calcular estadísticas
@@ -260,10 +292,23 @@ export default function ManageOrders() {
     {
       title: 'Acciones',
       key: 'actions',
-      width: 120,
+      width: 180,
       align: 'center',
       render: (_, record) => (
         <Space>
+          {record.status === 'PAID' && (
+            <Tooltip title="Reimprimir tickets (will-call)">
+              <Button
+                type="default"
+                size="small"
+                icon={<PrinterOutlined />}
+                loading={reprintingOrderId === record.orderId}
+                onClick={() => reprintOrder(record.orderId)}
+              >
+                Reimprimir
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip title="Cancelar orden">
             <Button
               type="primary"
@@ -400,6 +445,12 @@ export default function ManageOrders() {
                     }
                   ]}
                   actions={[
+                    ...(order.status === 'PAID' ? [{
+                      label: 'Reimprimir',
+                      icon: <PrinterOutlined />,
+                      loading: reprintingOrderId === order.orderId,
+                      onClick: () => reprintOrder(order.orderId)
+                    }] : []),
                     {
                       label: 'Cancelar',
                       icon: <DeleteOutlined />,

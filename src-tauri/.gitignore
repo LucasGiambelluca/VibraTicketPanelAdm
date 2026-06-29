@@ -1,0 +1,7 @@
+# Rust / Tauri build artifacts
+/target/
+/gen/
+
+# Iconos: se generan en CI con `tauri icon`. Versionamos SOLO la fuente.
+/icons/*
+!/icons/app-icon.png

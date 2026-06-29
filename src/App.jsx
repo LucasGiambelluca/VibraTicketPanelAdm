@@ -10,6 +10,7 @@ import AdminLogin from './pages/AdminLogin';
 import ForgotPassword from './pages/ForgotPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import VenueLayoutBuilder from './pages/VenueLayoutBuilder';
+import PrinterSettings from './pages/admin/PrinterSettings';
 
 function App() {
   return (
@@ -25,6 +26,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR']}>
                     <VenueLayoutBuilder />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/impresora"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR', 'BOLETERIA']}>
+                    <PrinterSettings />
                   </ProtectedRoute>
                 }
               />

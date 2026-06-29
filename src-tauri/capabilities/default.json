@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Allowlist mínima: solo lo que la app usa. Los comandos custom (printer/secure) se exponen vía invoke_handler y no requieren permiso de plugin.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

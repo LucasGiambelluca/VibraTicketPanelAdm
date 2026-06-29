@@ -1,5 +1,6 @@
 //! Núcleo de la app desktop VibraTickets Admin (Tauri v2).
 
+mod boca;
 mod printer;
 mod secure;
 
@@ -10,6 +11,9 @@ pub fn run() {
             printer::list_printers,
             printer::print_test,
             printer::print_ticket,
+            boca::boca_status,
+            boca::boca_print,
+            boca::boca_test,
             secure::secure_set,
             secure::secure_get,
             secure::secure_delete,

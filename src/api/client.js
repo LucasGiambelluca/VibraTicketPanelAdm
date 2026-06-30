@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { isTauri } from '../lib/tauri';
+import tauriAdapter from '../lib/tauriAdapter';
 
 // Use environment variable for API URL, fallback to relative /api for development
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -10,6 +12,12 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// En la app desktop, las requests salen por el core Rust (sin CORS, con cookie
+// jar nativo). En el navegador se usa el adapter normal de axios.
+if (isTauri()) {
+  apiClient.defaults.adapter = tauriAdapter;
+}
 
 apiClient.interceptors.request.use(
   (config) => {

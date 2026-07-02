@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Ticket,
   ShoppingBag,
+  Handshake,
   Users,
   LineChart,
   TicketPercent,
@@ -34,6 +35,7 @@ export const NAV_SECTIONS = [
       { key: 'boxoffice', label: 'Boletería', icon: Ticket },
       { key: 'discount-codes', label: 'Códigos', icon: TicketPercent },
       { key: 'payments-monitor', label: 'Pagos', icon: CreditCard },
+      { key: 'producers', label: 'Productoras', icon: Handshake },
     ],
   },
   {

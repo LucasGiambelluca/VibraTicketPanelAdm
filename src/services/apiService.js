@@ -862,6 +862,33 @@ export const producersApi = {
     return apiClient.post(`${API_BASE}/producers`, producerData);
   },
 
+  // Resumen MercadoPago por productora (ADMIN)
+  // RUTA: GET /api/producers/mp-summary
+  // Devuelve: [{ producer_id, producer_name, mp_status, mp_user_id, expires_at,
+  //              approved_payments, gross_cents, platform_fee_cents, producer_net_cents }]
+  getMpSummary: () => {
+    return apiClient.get(`${API_BASE}/producers/mp-summary`);
+  },
+
+  // Generar link OAuth para que la productora vincule SU cuenta de MercadoPago (ADMIN)
+  // RUTA: POST /api/producers/:id/mp-link
+  // Devuelve: { producerId, producerName, authorizationUrl, expiresInMinutes, instructions }
+  createProducerMpLink: (producerId) => {
+    return apiClient.post(`${API_BASE}/producers/${producerId}/mp-link`);
+  },
+
+  // Estado del link/vinculación MP de una productora (ADMIN)
+  // RUTA: GET /api/producers/:id/mp-link
+  getProducerMpLink: (producerId) => {
+    return apiClient.get(`${API_BASE}/producers/${producerId}/mp-link`);
+  },
+
+  // Desvincular la cuenta de MercadoPago de una productora (ADMIN)
+  // RUTA: DELETE /api/producers/:id/mp-link
+  revokeProducerMpLink: (producerId) => {
+    return apiClient.delete(`${API_BASE}/producers/${producerId}/mp-link`);
+  },
+
   // Obtener productor por ID
   getProducer: (producerId) => {
     return apiClient.get(`${API_BASE}/producers/${producerId}`);

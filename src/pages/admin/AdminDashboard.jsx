@@ -39,6 +39,7 @@ import BoxOffice from './BoxOffice';
 import SettingsAdmin from './SettingsAdmin';
 import DiscountCodes from './DiscountCodes';
 import PaymentMonitor from './PaymentMonitor';
+import ProducersPanel from './ProducersPanel';
 import { getImageUrl } from '../../utils/imageUtils';
 import { useEvents } from '../../hooks/useEvents';
 import { showsApi, eventsApi, eventStylesApi } from '../../services/apiService';
@@ -172,6 +173,8 @@ export default function AdminDashboard() {
         return <DiscountCodes />;
       case 'payments-monitor':
         return <PaymentMonitor />;
+      case 'producers':
+        return <ProducersPanel />;
       case 'health':
         return <HealthContent />;
       case 'mercadopago':

@@ -7,6 +7,8 @@ import { PrinterOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlin
 import { apiClient } from '../../api/client';
 import { boxofficeApi } from '../../services/apiService';
 import { agentStatus, agentPrint, agentTestTicket, getAgentUrl, setAgentUrl } from '../../services/printAgentService';
+import { isTauri } from '../../lib/tauri';
+import BocaPrinterConfig from '../../components/admin/BocaPrinterConfig';
 
 const { Title, Text } = Typography;
 
@@ -213,18 +215,20 @@ export default function BoxOffice() {
           description={
             <Space direction="vertical">
               <Text>La venta se puede hacer igual; los tickets quedan en el sistema para reimprimir.</Text>
-              <Space>
-                <Input
-                  size="small"
-                  style={{ width: 260 }}
-                  defaultValue={getAgentUrl()}
-                  onBlur={e => setAgentUrl(e.target.value)}
-                  addonBefore="URL agente"
-                />
-                <Button size="small" icon={<ReloadOutlined />} onClick={refreshAgent}>
-                  Reintentar
-                </Button>
-              </Space>
+              {!isTauri() && (
+                <Space>
+                  <Input
+                    size="small"
+                    style={{ width: 260 }}
+                    defaultValue={getAgentUrl()}
+                    onBlur={e => setAgentUrl(e.target.value)}
+                    addonBefore="URL agente"
+                  />
+                  <Button size="small" icon={<ReloadOutlined />} onClick={refreshAgent}>
+                    Reintentar
+                  </Button>
+                </Space>
+              )}
             </Space>
           }
         />
@@ -261,6 +265,21 @@ export default function BoxOffice() {
             </Button>
           }
         />
+      )}
+
+      {isTauri() && (
+        <Card
+          size="small"
+          title="Impresora BOCA (app de escritorio)"
+          style={{ marginBottom: 16 }}
+        >
+          <BocaPrinterConfig
+            onSaved={() => {
+              message.info('Configuración guardada — probando conexión…');
+              refreshAgent();
+            }}
+          />
+        </Card>
       )}
 
       <Card title="1. Funcion" style={{ marginBottom: 16 }}>

@@ -181,17 +181,21 @@ export default function FinancialReports() {
   ];
 
   return (
-    <div className="fade-in" style={{ padding: '24px', maxWidth: 1600, margin: '0 auto' }}>
-      <div style={{ marginBottom: 32 }}>
-        <Title level={2} style={{ margin: 0 }} className="mobile-compact-title">
-          <DollarOutlined style={{ marginRight: 12, color: '#667eea' }} />
-          Reportes Financieros
-        </Title>
-        <Text type="secondary">Resumen de ventas, recaudación y métricas financieras</Text>
-      </div>
+    <div className="fade-in">
+      <header className="page-header">
+        <span className="page-eyebrow">Finanzas · ventas</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Reportes</h1>
+            <p className="page-subtitle">
+              Ingresos, recaudación, descuentos. Filtrá por rango y por evento.
+            </p>
+          </div>
+        </div>
+      </header>
 
       {/* Filtros */}
-      <Card className="glass-card mobile-compact-card" style={{ marginBottom: 32, borderRadius: 16 }}>
+      <Card style={{ marginBottom: 24 }}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} md={8}>
             <Text strong style={{ display: 'block', marginBottom: 8 }}>Rango de Fechas</Text>

@@ -384,47 +384,30 @@ const DiscountCodesAdmin = () => {
   };
 
   return (
-    <div className="fade-in" style={{ padding: '24px', maxWidth: 1600, margin: '0 auto' }}>
-      
-      {/* Header Section */}
-      <div className="glass-header" style={{ 
-        padding: '24px', 
-        borderRadius: '16px', 
-        marginBottom: '32px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div>
-          <Title level={2} style={{ margin: 0, background: 'linear-gradient(45deg, #667eea, #764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Códigos de Descuento
-          </Title>
-          <Text type="secondary">Gestiona y monitorea tus campañas promocionales</Text>
+    <div className="fade-in">
+      <header className="page-header">
+        <span className="page-eyebrow">Promociones · campañas</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Códigos de descuento</h1>
+            <p className="page-subtitle">
+              Cupones, vouchers y promociones. Activá, pausá o vencé al instante.
+            </p>
+          </div>
+          <div className="page-actions">
+            <Input
+              placeholder="Buscar código"
+              prefix={<SearchOutlined />}
+              style={{ width: 220 }}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+            />
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+              Nuevo código
+            </Button>
+          </div>
         </div>
-        <Space>
-          <Input 
-            placeholder="Buscar código..." 
-            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />} 
-            style={{ width: 200, borderRadius: '8px' }}
-            onChange={e => setSearchText(e.target.value)}
-          />
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-            size="large"
-            style={{
-              background: 'linear-gradient(135deg, #667eea, #764ba2)',
-              border: 'none',
-              boxShadow: '0 4px 14px 0 rgba(118, 75, 162, 0.39)'
-            }}
-          >
-            Nuevo Código
-          </Button>
-        </Space>
-      </div>
+      </header>
 
       {/* Statistics Cards */}
       <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>

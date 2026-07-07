@@ -40,7 +40,7 @@ export default function DiscountCodeForm() {
         discountValue: values.discountValue,
         minimumPurchase: values.minimumPurchase,
         usageLimit: values.usageLimit,
-        userUsageLimit: values.userUsageLimit,
+        usageLimitPerUser: values.userUsageLimit,
         validFrom: values.validity ? values.validity[0].toISOString() : null,
         validUntil: values.validity ? values.validity[1].toISOString() : null,
         isActive: true
@@ -48,7 +48,7 @@ export default function DiscountCodeForm() {
 
       // Si es porcentaje, añadir tope de reintegro si existe
       if (values.discountType === 'PERCENTAGE' && values.maxDiscountAmount) {
-        discountData.maxDiscountAmount = values.maxDiscountAmount;
+        discountData.maximumDiscount = values.maxDiscountAmount;
       }
 
       await discountService.create(discountData);

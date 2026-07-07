@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { Card, Typography, Form, Input, Button, Checkbox, Space, message, Alert } from 'antd';
-import { UserOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Checkbox, message, Alert } from 'antd';
+import { ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import './AdminLogin.css';
-import logo from '../assets/VibraTicketLogo.png';
-
-const { Title, Text } = Typography;
 
 export default function AdminLogin() {
   const [form] = Form.useForm();
@@ -18,73 +15,49 @@ export default function AdminLogin() {
   const handleSubmit = async (values) => {
     setLoading(true);
     setError(null);
-    
     try {
-      // Llamar a la API de autenticación
-      const user = await login({
-        email: values.email,
-        password: values.password
-      });
-      
-      // Validar que el usuario tenga rol de ADMIN, ORGANIZER, PRODUCER o DOOR
+      const user = await login({ email: values.email, password: values.password });
       const allowedRoles = ['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR'];
       if (!allowedRoles.includes(user.role)) {
         setError('Este acceso es solo para administradores, organizadores y personal autorizado.');
-        message.error('Acceso denegado. Usa el login de clientes.');
-        
-        // Hacer logout automático
+        message.error('Acceso denegado. Usá el login de clientes.');
         await logout();
         return;
       }
-      
-      // Mostrar mensaje de éxito
-      message.success(`¡Bienvenido ${user.name || user.email}!`);
-      
-      // Redirigir al panel de administración
+      message.success(`Bienvenido ${user.name || user.email}`);
       navigate('/admin');
-      
-    } catch (error) {
-      console.error('❌ Error en login:', error);
-      
-      // Mostrar error específico
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Error al iniciar sesión. Verifica tus credenciales.';
-      
-      setError(errorMessage);
-      message.error(errorMessage);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Error al iniciar sesión.';
+      setError(msg);
+      message.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const year = new Date().getFullYear();
+
   return (
-    <div className="admin-login-container">
-      <Card className="admin-login-card">
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img 
-            src={logo} 
-            alt="VibraTicket" 
-            className="admin-login-logo"
-          />
-          <SafetyOutlined className="admin-login-icon" />
-          <Title level={2} className="admin-login-title">
-            Portal de Administración
-          </Title>
-          <Text type="secondary" className="admin-login-subtitle">
-            Acceso para Staff y Organizadores
-          </Text>
+    <div className="adm-login">
+      <section className="adm-login__form">
+        <div className="adm-login__brand">
+          <span className="mark">V</span>
+          <span>VibraTickets</span>
         </div>
 
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          size="large"
-        >
+        <div className="adm-login__center">
+          <div className="adm-login__eyebrow">control room · v2.6</div>
+          <h1 className="adm-login__title">
+            Lo que pasa<br />
+            <em>detrás</em> del show.
+          </h1>
+          <p className="adm-login__lede">
+            Dashboards en tiempo real. Decisiones en segundos. Una sola consola, todo el ecosistema.
+          </p>
+
           {error && (
             <Alert
-              message="Error de autenticación"
+              message="No se pudo iniciar sesión"
               description={error}
               type="error"
               showIcon
@@ -94,72 +67,71 @@ export default function AdminLogin() {
             />
           )}
 
-          <Form.Item
-            label="Email"
-            name="email"
-            rules={[
-              { required: true, message: 'Ingrese su email' },
-              { type: 'email', message: 'Email inválido' }
-            ]}
-          >
-            <Input 
-              prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="admin@ticketera.com"
-              className="admin-login-input"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Contraseña"
-            name="password"
-            rules={[{ required: true, message: 'Ingrese su contraseña' }]}
-          >
-            <Input.Password 
-              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="••••••••"
-              className="admin-login-input"
-            />
-          </Form.Item>
-
-          <Form.Item name="remember" valuePropName="checked">
-            <Checkbox>Recordarme</Checkbox>
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 16 }}>
-            <Button 
-              type="primary" 
-              htmlType="submit"
-              loading={loading}
-              block
-              className="admin-login-button"
+          <Form form={form} layout="vertical" onFinish={handleSubmit} size="large" requiredMark={false}>
+            <Form.Item
+              label="Email"
+              name="email"
+              rules={[
+                { required: true, message: 'Ingresá tu email' },
+                { type: 'email', message: 'Email inválido' },
+              ]}
             >
-              Iniciar Sesión
-            </Button>
-          </Form.Item>
+              <Input placeholder="staff@vibratickets.com" autoComplete="email" />
+            </Form.Item>
 
-          <div style={{ textAlign: 'center' }}>
-            <Space direction="vertical" size={8}>
-              <Link to="/forgot-password" style={{ color: '#1890ff' }}>
-                ¿Olvidaste tu contraseña?
-              </Link>
-              <Text type="secondary">
-                ¿Eres cliente?{' '}
-                <Link to="/customerlogin" style={{ color: '#1890ff', fontWeight: 600 }}>
-                  Ingresa aquí
-                </Link>
-              </Text>
-            </Space>
-          </div>
-        </Form>
+            <Form.Item
+              label="Contraseña"
+              name="password"
+              rules={[{ required: true, message: 'Ingresá tu contraseña' }]}
+            >
+              <Input.Password placeholder="•••••••••••" autoComplete="current-password" />
+            </Form.Item>
 
-      </Card>
+            <Form.Item name="remember" valuePropName="checked" style={{ marginBottom: 18 }}>
+              <Checkbox>Mantener la sesión abierta</Checkbox>
+            </Form.Item>
 
-      {/* Footer */}
-      <div className="admin-login-footer">
-        <Text className="admin-login-footer-text">
-          © {new Date().getFullYear()} VibraTicket | Portal de Administración
-        </Text>
-      </div>
+            <Form.Item style={{ marginBottom: 12 }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                block
+                className="adm-login__submit"
+                icon={!loading && <ArrowRight size={16} strokeWidth={2} />}
+                iconPosition="end"
+              >
+                Entrar al control room
+              </Button>
+            </Form.Item>
+
+            <div className="adm-login__links">
+              <Link to="/forgot-password">Olvidé mi contraseña</Link>
+              <span>
+                ¿Cliente? <Link to="/customerlogin">Acceso público</Link>
+              </span>
+            </div>
+          </Form>
+        </div>
+
+        <div className="adm-login__foot">© {year} · VibraTickets Admin · v2.6 lima build</div>
+      </section>
+
+      <aside className="adm-login__art">
+        <span className="adm-login__art-chip">en vivo · operación abierta</span>
+
+        <p className="adm-login__art-quote">
+          Tu show.<br />
+          <em>Tu data.</em><br />
+          <span className="cy">En vivo.</span>
+        </p>
+
+        <div className="adm-login__art-meta">
+          <div>uptime<b>99.98%</b></div>
+          <div>volumen<b>$ 4.2M / mes</b></div>
+          <div>nodos<b>BA · MAD · MIA</b></div>
+        </div>
+      </aside>
     </div>
   );
 }

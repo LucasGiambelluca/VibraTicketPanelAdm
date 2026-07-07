@@ -26,9 +26,18 @@ const { Option } = Select;
 const { TextArea } = Input;
 const { Step } = Steps;
 
-export default function CreateEvent() {
+export default function CreateEvent({ onEventCreated } = {}) {
   const [form] = Form.useForm();
   const navigate = useNavigate();
+
+  // Cierra el flujo: llama al callback del modal padre si existe; si no, navega.
+  const finish = () => {
+    if (typeof onEventCreated === 'function') {
+      onEventCreated({ id: createdEventId });
+    } else {
+      navigate('/admin/events');
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [createdEventId, setCreatedEventId] = useState(null);
@@ -55,13 +64,15 @@ export default function CreateEvent() {
         category: values.category,
         venue_id: Number(values.venueId), // Ensure it's a number
         address: values.address,
-        starts_at: values.startsAt.toISOString(),
-        ends_at: values.endsAt.toISOString(),
+        // Wall-clock local (hora Argentina) tal cual la elige el usuario.
+        // toISOString() convertía a UTC (+3h) y el evento quedaba corrido / en el pasado.
+        starts_at: values.startsAt.format('YYYY-MM-DD HH:mm:ss'),
+        ends_at: values.endsAt.format('YYYY-MM-DD HH:mm:ss'),
         status: 'DRAFT'
       };
 
       if (values.saleStart) {
-        eventData.sale_start_date = values.saleStart.toISOString();
+        eventData.sale_start_date = values.saleStart.format('YYYY-MM-DD HH:mm:ss');
       }
 
       // Crear evento
@@ -110,9 +121,9 @@ export default function CreateEvent() {
       });
 
       await Promise.all(uploadPromises);
-      
+
       message.success('Proceso finalizado correctamente');
-      navigate('/admin/events'); // Redirigir a lista de eventos
+      finish(); // Cierra el modal (callback) o navega si es página suelta
       
     } catch (error) {
       message.error('Error al subir imágenes');
@@ -310,7 +321,7 @@ export default function CreateEvent() {
             </Row>
 
             <div style={{ marginTop: 32, textAlign: 'right' }}>
-              <Button onClick={() => navigate('/admin/events')} style={{ marginRight: 12 }}>
+              <Button onClick={finish} style={{ marginRight: 12 }}>
                 Omitir Imágenes
               </Button>
               <Button type="primary" onClick={submitImages} loading={loading} icon={<SaveOutlined />} size="large">

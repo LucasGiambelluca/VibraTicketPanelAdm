@@ -344,35 +344,25 @@ export default function AdminBanners() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card
-        title={
-          <Space>
-            <PictureOutlined style={{ fontSize: 24 }} />
-            <span style={{ fontSize: 20, fontWeight: 'bold' }}>
-              Gestión de Banners de Homepage
-            </span>
-          </Space>
-        }
-        extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-            size="large"
-          >
-            Crear Banner
-          </Button>
-        }
-      >
-        <Alert
-          message="Información"
-          description="Los banners se muestran en el carousel de la página principal. Puedes reordenarlos, activarlos/desactivarlos y vincularlos a eventos o URLs externas."
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
+    <div>
+      <header className="page-header">
+        <span className="page-eyebrow">Homepage · carousel</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Banners</h1>
+            <p className="page-subtitle">
+              Lo primero que ve el cliente al entrar. Reordená, activá o vinculá a un evento.
+            </p>
+          </div>
+          <div className="page-actions">
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+              Crear banner
+            </Button>
+          </div>
+        </div>
+      </header>
 
+      <div className="data-card">
         <Table
           columns={columns}
           dataSource={banners}
@@ -451,7 +441,7 @@ export default function AdminBanners() {
             })
           )}
         </div>
-      </Card>
+      </div>
 
       <Modal
         title={editingBanner ? 'Editar Banner' : 'Crear Banner'}

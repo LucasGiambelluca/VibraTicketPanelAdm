@@ -1,91 +1,267 @@
-.admin-login-container {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+/* ================================================================
+   AdminLogin — Control Room v2.6 (dark · cyan + lime)
+   ================================================================ */
+
+.adm-login {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  position: relative;
+  background: var(--color-bg);
+  color: var(--color-text);
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) 1.05fr;
+  overflow: hidden;
 }
 
-.admin-login-card {
+@media (max-width: 960px) {
+  .adm-login { grid-template-columns: 1fr; }
+  .adm-login__art { display: none; }
+}
+
+.adm-login__form {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(28px, 5vw, 56px);
+  position: relative;
+  background: var(--color-surface);
+  overflow: hidden;
+}
+.adm-login__form::after {
+  content: "";
+  position: absolute;
+  bottom: -120px;
+  right: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--color-info), transparent 70%);
+  opacity: 0.10;
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.adm-login__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  position: relative;
+  z-index: 1;
+}
+.adm-login__brand .mark {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: -0.04em;
+}
+
+.adm-login__center {
+  max-width: 440px;
   width: 100%;
-  max-width: 400px;
-  border-radius: 16px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
-  border: none !important;
-  margin: 16px 0;
+  margin: auto 0;
+  position: relative;
   z-index: 1;
 }
 
-.admin-login-logo {
-  height: 50px;
-  width: auto;
-  margin-bottom: 12px;
-  max-width: 90%;
+.adm-login__eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.adm-login__eyebrow::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent);
 }
 
-.admin-login-icon {
-  font-size: 40px;
-  color: #1e3c72;
-  margin-bottom: 12px;
+.adm-login__title {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5.4vw, 60px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  color: var(--color-text);
+  margin: 0 0 18px;
+}
+.adm-login__title em {
+  font-style: normal;
+  font-weight: 900;
+  color: var(--color-accent);
 }
 
-.admin-login-title {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  margin-bottom: 8px !important;
-  font-size: clamp(1.25rem, 5vw, 1.75rem) !important;
+.adm-login__lede {
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  color: var(--color-text-secondary);
+  margin-bottom: 36px;
+  max-width: 38ch;
+  line-height: 1.55;
 }
 
-.admin-login-subtitle {
-  font-size: clamp(0.875rem, 3vw, 1rem) !important;
+.adm-login__form .ant-form-item-label > label {
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
 }
 
-.admin-login-input {
-  border-radius: 8px !important;
+.adm-login__submit.ant-btn {
+  height: 52px !important;
+  font-family: var(--font-display);
+  font-size: var(--fs-md) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-md) !important;
 }
 
-.admin-login-button {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
-  border: none !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
-  height: 48px !important;
-  font-size: 16px !important;
+.adm-login__links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--color-text-secondary);
+  margin-top: 18px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.adm-login__links a {
+  color: var(--color-info);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition: all 0.15s var(--ease-out);
+}
+.adm-login__links a:hover {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
 }
 
-.admin-login-button:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
+.adm-login__foot {
+  margin-top: 32px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  position: relative;
+  z-index: 1;
 }
 
-.admin-login-footer {
-  width: 100%;
-  padding: 16px;
-  text-align: center;
-  margin-top: auto; /* Push to bottom if using flex-direction: column on container */
-  color: rgba(255, 255, 255, 0.8);
+/* -------- ART SIDE -------- */
+.adm-login__art {
+  position: relative;
+  background:
+    linear-gradient(160deg, rgba(20, 25, 49, 0.55), rgba(10, 14, 24, 0.95)),
+    radial-gradient(circle at 75% 25%, var(--color-info), transparent 50%),
+    radial-gradient(circle at 25% 80%, var(--color-accent), transparent 50%),
+    var(--color-bg);
+  color: var(--color-text);
+  padding: 56px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  isolation: isolate;
 }
 
-.admin-login-footer-text {
-  color: white;
-  font-size: 0.85rem;
+.adm-login__art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(238, 239, 229, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(238, 239, 229, 0.03) 1px, transparent 1px);
+  background-size: 56px 56px;
+  z-index: -1;
 }
 
-@media (max-width: 576px) {
-  .admin-login-container {
-    padding: 16px;
-    justify-content: flex-start; /* Align to top on mobile to avoid keyboard issues */
-    padding-top: 40px;
-  }
-  
-  .admin-login-card {
-    box-shadow: none !important; /* Simplify on mobile */
-    background: rgba(255, 255, 255, 0.95);
-  }
+.adm-login__art-chip {
+  align-self: flex-start;
+  padding: 6px 14px;
+  background: rgba(196, 233, 75, 0.08);
+  border: 1px solid rgba(196, 233, 75, 0.4);
+  border-radius: 999px;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
+.adm-login__art-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent);
+  animation: pulse 2s infinite;
+}
+
+.adm-login__art-quote {
+  font-family: var(--font-display);
+  font-size: clamp(44px, 5.4vw, 82px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  color: var(--color-text);
+}
+.adm-login__art-quote em {
+  font-style: normal;
+  color: var(--color-accent);
+  font-weight: 900;
+}
+.adm-login__art-quote .cy {
+  color: var(--color-info);
+}
+
+.adm-login__art-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  border-top: 1px solid rgba(238, 239, 229, 0.12);
+  padding-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.adm-login__art-meta b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: none;
+  letter-spacing: -0.01em;
+  margin-top: 6px;
+}
+
+/* legacy hidden */
+.admin-login-container,
+.admin-login-card,
+.admin-login-logo,
+.admin-login-icon,
+.admin-login-title,
+.admin-login-subtitle,
+.admin-login-input,
+.admin-login-button,
+.admin-login-footer,
+.admin-login-footer-text { all: revert; }

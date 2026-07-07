@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VibraTickets · Wireframe B — Terracota editorial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4ECD8;
+    --bg-2:#EAE0C5;
+    --surface:#FCF7E9;
+    --ink:#2B1810;
+    --ink-2:#5C4030;
+    --ink-3:#8B6E5A;
+    --border:#D9C7A6;
+    --border-strong:#B79A78;
+    --terracota:#C84B2F;
+    --terracota-2:#E26B45;
+    --olive:#5D6F3D;
+    --olive-2:#7E8F58;
+    --mustard:#D49C2B;
+    --plum:#73334F;
+    --sky:#3A6A8A;
+    --font-d:"DM Serif Display",ui-serif,Georgia,serif;
+    --font-b:"Manrope",-apple-system,system-ui,sans-serif;
+    --font-m:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-b);
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;font-weight:400;
+    font-feature-settings:"kern","ss01"}
+  body{padding:32px}
+  .frame{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+  .header-meta{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--border);padding-bottom:24px;flex-wrap:wrap;gap:16px}
+  .kicker{font-family:var(--font-m);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+  h1.brand{font-family:var(--font-d);font-weight:400;font-size:42px;letter-spacing:-.02em;margin:0;line-height:1}
+  h1.brand em{color:var(--terracota);font-style:italic}
+
+  /* ================ LOGIN ================ */
+  .login{display:grid;grid-template-columns:1fr 1.1fr;border-radius:0;overflow:hidden;border:1px solid var(--ink);background:var(--surface);min-height:540px}
+  .login__left{padding:56px 48px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface);position:relative}
+  .login__left::before{content:"V";position:absolute;top:-30px;right:-10px;font-family:var(--font-d);font-size:300px;color:var(--terracota);opacity:.06;pointer-events:none;line-height:1}
+  .login__eye{font-family:var(--font-m);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--terracota);margin-bottom:24px;position:relative}
+  .login__eye::before{content:"";display:inline-block;width:24px;height:1px;background:var(--terracota);vertical-align:middle;margin-right:10px}
+  .login__title{font-family:var(--font-d);font-weight:400;font-size:70px;letter-spacing:-.02em;line-height:.95;margin:0 0 18px}
+  .login__title em{font-style:italic;color:var(--terracota)}
+  .login__lede{color:var(--ink-2);font-size:16px;max-width:36ch;margin-bottom:36px;line-height:1.55}
+  .field{margin-bottom:18px}
+  .field label{display:block;font-family:var(--font-m);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+  .input{width:100%;height:52px;border:0;border-bottom:2px solid var(--ink);background:transparent;padding:0 4px;font-family:var(--font-b);font-size:16px;color:var(--ink);outline:none;transition:border-color .15s}
+  .input:focus{border-bottom-color:var(--terracota)}
+  .input::placeholder{color:var(--ink-3)}
+  .btn-primary{width:100%;height:56px;border:0;border-radius:0;background:var(--ink);color:var(--bg);font-family:var(--font-b);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px}
+  .btn-primary::before{content:"";position:absolute;inset:0;background:var(--terracota);transform:translateY(101%);transition:transform .25s ease}
+  .btn-primary:hover::before{transform:translateY(0)}
+  .btn-primary span{position:relative;z-index:1}
+  .login__right{padding:48px;background:
+    linear-gradient(180deg, rgba(43,24,16,.65), rgba(43,24,16,.95)),
+    radial-gradient(circle at 70% 30%, var(--terracota), transparent 55%),
+    radial-gradient(circle at 25% 80%, var(--mustard), transparent 50%),
+    var(--ink);
+    color:var(--bg);display:flex;flex-direction:column;justify-content:space-between;position:relative;isolation:isolate}
+  .login__right .badge{align-self:flex-start;font-family:var(--font-m);font-size:10px;padding:6px 12px;border:1px solid rgba(244,236,216,.4);border-radius:999px;letter-spacing:.16em;text-transform:uppercase;color:var(--bg);display:inline-flex;align-items:center;gap:8px}
+  .login__right .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--terracota-2);box-shadow:0 0 10px var(--terracota-2)}
+  .login__quote{font-family:var(--font-d);font-weight:400;font-size:80px;line-height:.92;letter-spacing:-.025em}
+  .login__quote em{font-style:italic;color:var(--mustard)}
+  .login__quote .ter{color:var(--terracota-2)}
+  .login__meta{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;border-top:1px solid rgba(244,236,216,.18);padding-top:20px;font-family:var(--font-m);font-size:10px;color:rgba(244,236,216,.6);text-transform:uppercase;letter-spacing:.1em}
+  .login__meta b{display:block;font-family:var(--font-d);font-size:18px;color:var(--bg);text-transform:none;letter-spacing:0;font-weight:400;margin-top:4px}
+
+  /* ============ DASHBOARD ============ */
+  .dash{display:grid;grid-template-columns:260px 1fr;border:1px solid var(--ink);background:var(--surface);overflow:hidden;min-height:820px}
+  .sidebar{background:var(--ink);color:var(--bg);padding:24px 16px;display:flex;flex-direction:column;gap:20px}
+  .brand{display:flex;align-items:center;gap:12px;padding:0 8px 16px;border-bottom:1px solid rgba(244,236,216,.12)}
+  .brand .mk{width:40px;height:40px;border-radius:50%;background:var(--terracota);color:var(--bg);display:grid;place-items:center;font-family:var(--font-d);font-size:20px}
+  .brand .nm{font-family:var(--font-d);font-size:19px;letter-spacing:-.015em;line-height:1}
+  .brand .sub{font-family:var(--font-m);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(244,236,216,.5);display:block;margin-top:4px}
+  .nav-sec{font-family:var(--font-m);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(244,236,216,.4);padding:10px 12px}
+  .nav-i{display:flex;align-items:center;gap:12px;padding:10px 12px;color:rgba(244,236,216,.75);font-size:13.5px;cursor:pointer;border-radius:0;font-weight:500;transition:all .15s}
+  .nav-i:hover{background:rgba(244,236,216,.08);color:var(--bg)}
+  .nav-i.active{background:var(--terracota);color:var(--bg);font-weight:600}
+  .nav-i .num{font-family:var(--font-m);font-size:10px;color:rgba(244,236,216,.35);width:24px;letter-spacing:.04em}
+  .nav-i.active .num{color:var(--bg)}
+  .sidebar-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(244,236,216,.12);display:flex;align-items:center;gap:10px}
+  .avatar{width:36px;height:36px;border-radius:50%;background:var(--mustard);color:var(--ink);display:grid;place-items:center;font-family:var(--font-d);font-size:16px}
+  .foot-meta b{display:block;font-family:var(--font-b);font-size:13px;font-weight:600;color:var(--bg)}
+  .foot-meta span{font-family:var(--font-m);font-size:10px;color:rgba(244,236,216,.5);letter-spacing:.12em;text-transform:uppercase}
+
+  .main{display:flex;flex-direction:column;background:var(--surface)}
+  .topbar{padding:16px 28px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border);background:var(--bg-2)}
+  .topbar .ttl{flex:1}
+  .topbar .ttl .eye{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+  .topbar .ttl h2{font-family:var(--font-d);font-weight:400;font-size:24px;margin:2px 0 0;letter-spacing:-.01em}
+  .ta{height:36px;padding:0 16px;border:1px solid var(--ink);background:var(--surface);font-family:var(--font-m);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);cursor:pointer;font-weight:600}
+  .ta.primary{background:var(--ink);color:var(--bg)}
+  .content{padding:36px 28px;display:flex;flex-direction:column;gap:28px}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .page-head .eye{font-family:var(--font-m);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--terracota);margin-bottom:12px;display:inline-flex;align-items:center;gap:10px}
+  .page-head .eye::before{content:"";width:32px;height:1px;background:var(--terracota)}
+  .page-head h1{font-family:var(--font-d);font-weight:400;font-size:64px;letter-spacing:-.025em;margin:0;line-height:.95}
+  .page-head h1 em{font-style:italic;color:var(--terracota)}
+  .page-head .sub{color:var(--ink-2);font-size:15px;margin-top:14px;max-width:60ch;line-height:1.5}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{padding:24px;border-radius:0;border:1px solid var(--ink);background:var(--surface);position:relative;overflow:hidden;display:flex;flex-direction:column;gap:14px;min-height:170px}
+  .kpi.ter{background:var(--terracota);color:var(--bg);border-color:var(--ink)}
+  .kpi.oli{background:var(--olive);color:var(--bg);border-color:var(--ink)}
+  .kpi.must{background:var(--mustard);color:var(--ink);border-color:var(--ink)}
+  .kpi .lbl{font-family:var(--font-m);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+  .kpi.ter .lbl, .kpi.oli .lbl{color:rgba(244,236,216,.78)}
+  .kpi.must .lbl{color:var(--ink)}
+  .kpi .val{font-family:var(--font-d);font-weight:400;font-size:54px;letter-spacing:-.03em;line-height:1}
+  .kpi.ter .val, .kpi.oli .val{color:var(--bg)}
+  .kpi.must .val{color:var(--ink)}
+  .kpi .delta{font-family:var(--font-m);font-size:11px;margin-top:auto;letter-spacing:.05em;display:inline-flex;align-items:center;gap:6px}
+  .delta.up{color:var(--olive)}
+  .delta.down{color:var(--terracota)}
+  .kpi.ter .delta.up, .kpi.oli .delta.up{color:var(--mustard)}
+  .kpi.must .delta.up{color:var(--ink)}
+
+  .row-two{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
+  .panel{background:var(--surface);border:1px solid var(--ink);padding:28px;position:relative}
+  .panel-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:20px}
+  .panel-head .eye{font-family:var(--font-m);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--terracota)}
+  .panel-head h3{font-family:var(--font-d);font-weight:400;font-size:28px;margin:4px 0 0;letter-spacing:-.015em}
+  .panel-head a{font-family:var(--font-m);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink);text-decoration:none;font-weight:600;border-bottom:2px solid var(--terracota);padding-bottom:2px}
+
+  .show-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;padding:18px 0;border-bottom:1px solid var(--border)}
+  .show-row:last-child{border-bottom:0}
+  .ord{font-family:var(--font-d);font-weight:400;font-size:42px;line-height:1;color:var(--terracota);font-style:italic;width:48px;text-align:right}
+  .info b{font-family:var(--font-d);font-size:20px;font-weight:400;letter-spacing:-.01em;display:block;line-height:1.2}
+  .info span{font-family:var(--font-m);font-size:11px;color:var(--ink-3);letter-spacing:.05em;margin-top:6px;display:inline-flex;align-items:center;gap:8px}
+  .info span .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.5}
+  .tag{font-family:var(--font-m);font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;border:1px solid var(--ink)}
+  .tag.live{background:var(--olive);color:var(--bg);border-color:var(--ink)}
+  .tag.hot{background:var(--terracota);color:var(--bg);border-color:var(--ink)}
+  .tag.draft{background:transparent;color:var(--ink-3);border-color:var(--border-strong)}
+
+  .shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:0;border:1px solid var(--ink)}
+  .sc{padding:22px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);display:flex;flex-direction:column;gap:10px;cursor:pointer;background:var(--surface);transition:background .15s, color .15s}
+  .sc:nth-child(2n){border-right:0}
+  .sc:nth-last-child(-n+2){border-bottom:0}
+  .sc:hover{background:var(--ink);color:var(--bg)}
+  .sc .ic{font-family:var(--font-d);font-size:32px;line-height:1;color:var(--terracota)}
+  .sc:hover .ic{color:var(--mustard)}
+  .sc b{font-family:var(--font-d);font-weight:400;font-size:22px;letter-spacing:-.01em}
+  .sc span{font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .sc:hover span{color:rgba(244,236,216,.6)}
+
+  .footer{text-align:center;font-family:var(--font-m);font-size:11px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;padding:24px 0}
+
+  @media (max-width:900px){
+    .login{grid-template-columns:1fr}
+    .login__right{display:none}
+    .dash{grid-template-columns:1fr}
+    .sidebar{display:none}
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .row-two{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="header-meta">
+    <div>
+      <div class="kicker">Wireframe B · terracota editorial</div>
+      <h1 class="brand">VibraTickets <em>magazine</em></h1>
+    </div>
+    <div class="kicker">DM Serif Display + Manrope · accent terracota + oliva + mostaza · bordes negros</div>
+  </div>
+
+  <!-- LOGIN -->
+  <section class="login">
+    <div class="login__left">
+      <div></div>
+      <div>
+        <div class="login__eye">Edición N.º 026</div>
+        <h2 class="login__title">El backstage<br>de tu <em>show</em>.</h2>
+        <p class="login__lede">Una revista de operaciones: cifras, cartelera, decisiones. Para productores que diseñan, no que apagan incendios.</p>
+        <div class="field">
+          <label>Email</label>
+          <input class="input" placeholder="staff@vibratickets.com" />
+        </div>
+        <div class="field">
+          <label>Contraseña</label>
+          <input class="input" type="password" placeholder="•••••••••••" />
+        </div>
+        <button class="btn-primary"><span>Entrar al backstage</span></button>
+      </div>
+      <div></div>
+    </div>
+    <div class="login__right">
+      <span class="badge">en vivo · 2,914 personas comprando</span>
+      <p class="login__quote">Tu show.<br><em>Tu data.</em><br><span class="ter">En vivo.</span></p>
+      <div class="login__meta">
+        <div>operación<b>24 / 7</b></div>
+        <div>volumen<b>$ 4.2 M / mes</b></div>
+        <div>versión<b>v2.6 · pomelo</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="dash">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mk">V</div>
+        <div>
+          <div class="nm">VibraTickets</div>
+          <span class="sub">admin · ar</span>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-sec">General</div>
+        <div class="nav-i active"><span class="num">01</span>Resumen</div>
+        <div class="nav-i"><span class="num">02</span>Eventos</div>
+        <div class="nav-i"><span class="num">03</span>Funciones</div>
+        <div class="nav-i"><span class="num">04</span>Venues</div>
+        <div class="nav-i"><span class="num">05</span>Banners</div>
+        <div class="nav-sec">Ventas</div>
+        <div class="nav-i"><span class="num">06</span>Órdenes</div>
+        <div class="nav-i"><span class="num">07</span>Códigos</div>
+        <div class="nav-i"><span class="num">08</span>Pagos</div>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="avatar">L</div>
+        <div class="foot-meta"><b>Lucas G.</b><span>admin · ar</span></div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="ttl">
+          <div class="eye">Edición · martes 26 may</div>
+          <h2>Resumen general</h2>
+        </div>
+        <button class="ta">Buscar</button>
+        <button class="ta">Sync</button>
+        <button class="ta primary">+ Nuevo evento</button>
+      </header>
+
+      <div class="content">
+        <div class="page-head">
+          <div>
+            <div class="eye">portada · 26 mayo 2026</div>
+            <h1>Buenas tardes, <em>Lucas</em>.</h1>
+            <p class="sub">Tu panel del día. Tres cifras, una cartelera, un par de decisiones. Lo demás puede esperar.</p>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi ter">
+            <div class="lbl">Ingresos mes</div>
+            <div class="val">$4.2M</div>
+            <div class="delta up">↗ +12% vs abril</div>
+          </div>
+          <div class="kpi oli">
+            <div class="lbl">Eventos vivos</div>
+            <div class="val">12</div>
+            <div class="delta up">↗ 3 nuevos</div>
+          </div>
+          <div class="kpi must">
+            <div class="lbl">Órdenes hoy</div>
+            <div class="val">87</div>
+            <div class="delta up">↗ 24 pagas</div>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Asistentes mes</div>
+            <div class="val">2,914</div>
+            <div class="delta down">↘ -2% capacidad</div>
+          </div>
+        </div>
+
+        <div class="row-two">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eye">Cartelera · próximos shows</div>
+                <h3>En cartel</h3>
+              </div>
+              <a href="#">Ver todos</a>
+            </div>
+            <div class="show-row">
+              <div class="ord">01</div>
+              <div class="info"><b>Iron Maiden · Run For Your Lives</b><span>Estadio River Plate<span class="dot"></span>28 may · 21:00 hs<span class="dot"></span>vendido 78%</span></div>
+              <span class="tag hot">hot</span>
+            </div>
+            <div class="show-row">
+              <div class="ord">02</div>
+              <div class="info"><b>Bad Bunny · Most Wanted Tour</b><span>Hipódromo de Palermo<span class="dot"></span>31 may · 22:30 hs<span class="dot"></span>sold out</span></div>
+              <span class="tag live">live</span>
+            </div>
+            <div class="show-row">
+              <div class="ord">03</div>
+              <div class="info"><b>Lali · Disciplina Tour</b><span>Movistar Arena<span class="dot"></span>4 jun · 21:30 hs<span class="dot"></span>vendido 42%</span></div>
+              <span class="tag live">live</span>
+            </div>
+            <div class="show-row">
+              <div class="ord">04</div>
+              <div class="info"><b>Drexler · Tinta y Tiempo</b><span>Gran Rex<span class="dot"></span>12 jun · 20:00 hs<span class="dot"></span>vendido 18%</span></div>
+              <span class="tag draft">draft</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eye">Atajos · operaciones</div>
+                <h3>Acceso rápido</h3>
+              </div>
+            </div>
+            <div class="shortcuts">
+              <div class="sc"><span class="ic">▤</span><b>Eventos</b><span>crud</span></div>
+              <div class="sc"><span class="ic">◷</span><b>Funciones</b><span>agenda</span></div>
+              <div class="sc"><span class="ic">$</span><b>Órdenes</b><span>ventas</span></div>
+              <div class="sc"><span class="ic">✓</span><b>Reportes</b><span>finanzas</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">Wireframe B · Terracota editorial · static mockup</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wireframes · VibraTickets admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400..700&family=Inter+Tight:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0E0E0D;color:#F6F4EE;font-family:"Inter Tight",sans-serif;padding:48px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-family:"Newsreader",serif;font-weight:480;font-size:48px;letter-spacing:-.03em;margin-bottom:8px;font-variation-settings:"opsz" 72}
+  h1 em{color:#FF5530;font-style:italic}
+  .lede{color:#A8A89F;max-width:60ch;line-height:1.55;margin-bottom:48px;font-size:15px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{border:1px solid #2A2A28;border-radius:14px;overflow:hidden;background:#1A1A18;text-decoration:none;color:inherit;transition:transform .2s,border-color .2s}
+  .card:hover{transform:translateY(-3px);border-color:#FF5530}
+  .card .preview{aspect-ratio:16/10;display:grid;place-items:center;font-family:"Newsreader",serif;font-size:96px;font-weight:480;font-variation-settings:"opsz" 144;letter-spacing:-.04em}
+  .card.a .preview{background:linear-gradient(135deg,#FFF8F0 0%,#FFEDE5 100%);color:#FF5530}
+  .card.b .preview{background:linear-gradient(135deg,#F4ECD8 0%,#EAE0C5 100%);color:#C84B2F;font-family:"DM Serif Display",serif}
+  .card.c .preview{background:radial-gradient(circle at 30% 30%,#5C6BFF55,transparent 60%),radial-gradient(circle at 70% 70%,#FF3D9F40,transparent 60%),#0B0E1A;color:#D4F542;font-family:sans-serif;font-weight:900}
+  .card .meta{padding:24px}
+  .card .kicker{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7A7869;margin-bottom:10px}
+  .card h2{font-family:"Newsreader",serif;font-weight:500;font-size:24px;letter-spacing:-.015em;margin-bottom:8px}
+  .card p{color:#A8A89F;font-size:13.5px;line-height:1.55}
+  .swatches{display:flex;gap:6px;margin-top:14px}
+  .sw{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.08)}
+  .help{margin-top:48px;padding:24px;border-radius:12px;background:#161614;border:1px solid #2A2A28;font-size:13.5px;color:#A8A89F;line-height:1.55}
+  .help strong{color:#F6F4EE;font-weight:600}
+  .help code{font-family:"JetBrains Mono",monospace;background:#0E0E0D;padding:2px 6px;border-radius:4px;color:#FF8A6E;font-size:12px}
+  @media (max-width:780px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Wireframes <em>admin</em></h1>
+  <p class="lede">3 direcciones distintas. Más color, mejor tipografía, mismas funciones. Clic en cada uno para ver login + dashboard preview. Después me decís cuál usamos.</p>
+
+  <div class="grid">
+    <a href="a-pomelo.html" class="card a">
+      <div class="preview">A</div>
+      <div class="meta">
+        <div class="kicker">opción a · refinado</div>
+        <h2>Pomelo refined</h2>
+        <p>Editorial cálido sobre crema. Serif Newsreader + Inter Tight (más nítido que el anterior). KPI cards mixtos: feature oscuro, suaves color, neutros.</p>
+        <div class="swatches">
+          <div class="sw" style="background:#FFF8F0"></div>
+          <div class="sw" style="background:#FF5530"></div>
+          <div class="sw" style="background:#F2A93B"></div>
+          <div class="sw" style="background:#693B70"></div>
+          <div class="sw" style="background:#446B4A"></div>
+          <div class="sw" style="background:#1B1410"></div>
+        </div>
+      </div>
+    </a>
+
+    <a href="b-terracota.html" class="card b">
+      <div class="preview">B</div>
+      <div class="meta">
+        <div class="kicker">opción b · magazine</div>
+        <h2>Terracota editorial</h2>
+        <p>Magazine vibe. DM Serif Display + Manrope. Bordes negros gruesos, KPI llenos con color sólido (terracota, oliva, mostaza). Numeración tipo revista.</p>
+        <div class="swatches">
+          <div class="sw" style="background:#F4ECD8"></div>
+          <div class="sw" style="background:#C84B2F"></div>
+          <div class="sw" style="background:#5D6F3D"></div>
+          <div class="sw" style="background:#D49C2B"></div>
+          <div class="sw" style="background:#73334F"></div>
+          <div class="sw" style="background:#2B1810"></div>
+        </div>
+      </div>
+    </a>
+
+    <a href="c-vibrant.html" class="card c">
+      <div class="preview">C</div>
+      <div class="meta">
+        <div class="kicker">opción c · tech</div>
+        <h2>Vibrant SaaS</h2>
+        <p>Dark mode con bento grid. Cabinet Grotesk + Space Grotesk. Eléctrico + lime + magenta + cyan. Linear/Vercel/Stripe vibes. Mucho color, mucho glow.</p>
+        <div class="swatches">
+          <div class="sw" style="background:#0B0E1A"></div>
+          <div class="sw" style="background:#5C6BFF"></div>
+          <div class="sw" style="background:#D4F542"></div>
+          <div class="sw" style="background:#FF3D9F"></div>
+          <div class="sw" style="background:#3DD4F5"></div>
+          <div class="sw" style="background:#FF8B3D"></div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="help">
+    <p><strong>Sobre las fuentes pixeladas que mencionaste:</strong> el problema venía por usar Fraunces con weights muy livianos (380-420) a tamaños chicos. En estos 3 wireframes evito eso. <strong>A</strong> usa Newsreader (más sólido que Fraunces) con weight 430+ y Inter Tight (más nítido que General Sans a tamaños chicos). <strong>B</strong> usa DM Serif Display que es display puro + Manrope. <strong>C</strong> usa Cabinet Grotesk + Space Grotesk (geométricas, perfecto rendering en todos los tamaños).</p>
+    <p style="margin-top:12px"><strong>Sobre el color:</strong> el anterior tenía 1 solo accent (pomelo) muy aislado. Estas 3 versiones usan paletas completas con 4-6 colores activos en KPI cards, sidebar, hover states. <strong>B</strong> y <strong>C</strong> son las más coloridas; <strong>A</strong> es el balance refinado del original con más vida.</p>
+    <p style="margin-top:12px">Después de elegir te aplico la dirección elegida al admin entero + redeploy. Tiempo estimado: 30 min implementación + deploy.</p>
+  </div>
+</div>
+</body>
+</html>

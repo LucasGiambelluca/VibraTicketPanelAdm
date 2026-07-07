@@ -576,7 +576,18 @@ const AdminUsersPanel = () => {
 
   return (
     <div className="admin-users-panel">
-      <Card title={<span className="mobile-compact-title">Gestión de Usuarios</span>} extra={<Badge count={users.length} showZero color="blue" />} className="mobile-compact-card">
+      <header className="page-header">
+        <span className="page-eyebrow">Operaciones · accesos</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Usuarios</h1>
+            <p className="page-subtitle">
+              Altas, roles y bloqueos. Total registrados: <strong>{users.length}</strong>.
+            </p>
+          </div>
+        </div>
+      </header>
+      <Card>
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
           {/* TAB 1: CREAR USUARIO */}
           <TabPane tab={<span><UserAddOutlined /> Crear Usuario</span>} key="1">

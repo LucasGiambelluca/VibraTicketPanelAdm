@@ -214,17 +214,19 @@ export default function PaymentMonitor() {
 
   return (
     <div className="fade-in">
-      <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0, color: '#fff' }}>
-          <DollarOutlined style={{ marginRight: 12, color: '#667eea' }} />
-          Monitor de Pagos
-        </Title>
-        <Text style={{ color: 'rgba(255,255,255,0.7)' }}>
-          Historial de notificaciones de MercadoPago
-        </Text>
-      </div>
+      <header className="page-header">
+        <span className="page-eyebrow">Pagos · MercadoPago</span>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Monitor</h1>
+            <p className="page-subtitle">
+              Notificaciones IPN/webhook de MercadoPago. Filtrá por estado, orden o ID de pago.
+            </p>
+          </div>
+        </div>
+      </header>
 
-      <Card className="glass-card" bordered={false} style={{ borderRadius: 16, marginBottom: 24 }}>
+      <Card style={{ marginBottom: 24 }}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} md={6}>
             <Select

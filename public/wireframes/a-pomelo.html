@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VibraTickets · Wireframe A — Pomelo refined</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..800;1,6..72,300..800&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFF8F0;
+    --surface:#FFFFFF;
+    --ink:#1B1410;
+    --ink-2:#5C4B41;
+    --ink-3:#8E7E73;
+    --border:#EFE3D4;
+    --border-strong:#D9C9B6;
+    --pomelo:#FF5530;
+    --amber:#F2A93B;
+    --plum:#693B70;
+    --moss:#446B4A;
+    --sky:#3A6FB8;
+    --font-d: "Newsreader", ui-serif, Georgia, serif;
+    --font-b: "Inter Tight", -apple-system, system-ui, sans-serif;
+    --font-m: "JetBrains Mono", ui-monospace, monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-b);
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
+    font-feature-settings:"kern","ss01","cv11";}
+  body{padding:32px;}
+  .frame{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+  .header-meta{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--border);padding-bottom:24px;flex-wrap:wrap;gap:16px}
+  .kicker{font-family:var(--font-m);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+  h1.brand{font-family:var(--font-d);font-weight:480;font-size:36px;letter-spacing:-.025em;margin:0;font-variation-settings:"opsz" 60}
+  h1.brand em{color:var(--pomelo);font-style:italic;font-weight:400}
+
+  /* ============ LOGIN ============ */
+  .login{display:grid;grid-template-columns:1.05fr 1fr;border-radius:24px;overflow:hidden;border:1px solid var(--border);background:var(--surface);min-height:520px}
+  .login__left{padding:48px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface)}
+  .login__eyebrow{font-family:var(--font-m);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--pomelo);margin-bottom:24px}
+  .login__title{font-family:var(--font-d);font-weight:380;font-size:64px;letter-spacing:-.038em;line-height:.95;margin:0 0 16px;font-variation-settings:"opsz" 72}
+  .login__title em{font-style:italic;color:var(--pomelo)}
+  .login__lede{color:var(--ink-2);font-size:16px;max-width:38ch;margin-bottom:40px;line-height:1.55}
+  .input-block{margin-bottom:18px}
+  .input-block label{display:block;font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+  .input{width:100%;height:50px;border:1px solid var(--border-strong);border-radius:10px;padding:0 16px;font-family:var(--font-b);font-size:15px;background:var(--bg);color:var(--ink);outline:none;transition:border .15s ease, box-shadow .15s ease;}
+  .input:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(255,85,48,.18)}
+  .btn-primary{width:100%;height:52px;border:0;border-radius:10px;background:var(--ink);color:var(--bg);font-family:var(--font-b);font-weight:600;font-size:15px;letter-spacing:-.005em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s ease;position:relative;overflow:hidden}
+  .btn-primary::after{content:"";position:absolute;inset:0;background:var(--pomelo);transform:translateX(-101%);transition:transform .25s ease;z-index:0}
+  .btn-primary span{position:relative;z-index:1}
+  .btn-primary:hover::after{transform:translateX(0)}
+  .login__right{position:relative;background:var(--ink);color:var(--bg);padding:48px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;isolation:isolate}
+  .login__right::before{content:"";position:absolute;inset:0;background:
+    radial-gradient(circle at 80% 25%, rgba(255,85,48,.5),transparent 55%),
+    radial-gradient(circle at 18% 88%, rgba(242,169,59,.32),transparent 50%);z-index:-2}
+  .login__right::after{content:"";position:absolute;inset:0;background-image:
+    linear-gradient(rgba(255,248,240,.05) 1px,transparent 1px),
+    linear-gradient(90deg, rgba(255,248,240,.05) 1px, transparent 1px);background-size:48px 48px;z-index:-1;opacity:.7}
+  .login__right .top-tag{font-family:var(--font-m);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,248,240,.7);display:inline-flex;align-items:center;gap:8px}
+  .login__right .top-tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--pomelo);box-shadow:0 0 12px var(--pomelo)}
+  .login__quote{font-family:var(--font-d);font-weight:380;font-size:76px;line-height:.95;letter-spacing:-.035em;font-variation-settings:"opsz" 72}
+  .login__quote em{font-style:italic;color:var(--pomelo)}
+  .login__quote span.amber{color:var(--amber)}
+  .login__meta{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font-family:var(--font-m);font-size:11px;color:rgba(255,248,240,.6);text-transform:uppercase;letter-spacing:.1em;border-top:1px solid rgba(255,248,240,.12);padding-top:20px}
+  .login__meta b{font-family:var(--font-b);font-size:13px;color:var(--bg);text-transform:none;letter-spacing:0;font-weight:500}
+
+  /* ============ DASHBOARD ============ */
+  .dash{display:grid;grid-template-columns:248px 1fr;border:1px solid var(--border);border-radius:24px;background:var(--surface);overflow:hidden;min-height:780px}
+  .sidebar{background:var(--bg);border-right:1px solid var(--border);padding:24px 16px;display:flex;flex-direction:column;gap:24px}
+  .brand-mark{display:flex;align-items:center;gap:12px;padding:0 8px 16px;border-bottom:1px solid var(--border)}
+  .brand-mark .mk{width:36px;height:36px;border-radius:10px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--font-d);font-weight:520;font-size:18px;letter-spacing:-.04em}
+  .brand-mark .nm{font-family:var(--font-d);font-size:17px;font-weight:520;letter-spacing:-.02em}
+  .brand-mark .sub{font-family:var(--font-m);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-top:3px;display:block}
+  .nav-section{font-family:var(--font-m);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);padding:8px 12px}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;color:var(--ink-2);cursor:pointer;font-size:13.5px;font-weight:500;transition:background .15s,color .15s;position:relative}
+  .nav-item:hover{background:rgba(255,85,48,.06);color:var(--pomelo)}
+  .nav-item.active{background:var(--ink);color:var(--bg);font-weight:600}
+  .nav-item.active::before{content:"";position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--pomelo);border-radius:0 2px 2px 0}
+  .nav-item .dot{width:14px;height:14px;border-radius:3px;background:currentColor;opacity:.85}
+  .nav-item.active .dot{background:var(--pomelo);opacity:1}
+  .sidebar-foot{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--pomelo),var(--amber));display:grid;place-items:center;color:#fff;font-family:var(--font-d);font-weight:600;font-size:15px}
+  .foot-meta b{display:block;font-family:var(--font-b);font-size:13px;font-weight:600}
+  .foot-meta span{font-family:var(--font-m);font-size:10px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase}
+
+  .main{display:flex;flex-direction:column}
+  .topbar{padding:18px 28px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .topbar .title-block{flex:1}
+  .topbar .top-eye{font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .topbar h2{font-family:var(--font-d);font-weight:480;font-size:22px;letter-spacing:-.02em;margin:2px 0 0;font-variation-settings:"opsz" 30}
+  .top-action{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);font-family:var(--font-b);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+  .top-action.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .content{padding:32px 28px;display:flex;flex-direction:column;gap:24px}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--border)}
+  .page-head .eye{font-family:var(--font-m);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--pomelo);margin-bottom:8px}
+  .page-head h1{font-family:var(--font-d);font-weight:430;font-size:48px;letter-spacing:-.03em;margin:0;line-height:1;font-variation-settings:"opsz" 60}
+  .page-head .greet em{font-style:italic;color:var(--pomelo)}
+  .page-head .sub{color:var(--ink-2);font-size:14.5px;margin-top:8px;max-width:54ch;line-height:1.5}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{padding:22px;border-radius:18px;border:1px solid var(--border);background:var(--surface);position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;min-height:160px}
+  .kpi.feature{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .kpi.feature::after{content:"";position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,85,48,.7),transparent 70%);filter:blur(20px)}
+  .kpi.warm{background:#FFEDE5;border-color:#FFD7C6}
+  .kpi.warm .val{color:var(--pomelo)}
+  .kpi.plum{background:#F1E8F3;border-color:#E2D0E5}
+  .kpi.plum .val{color:var(--plum)}
+  .kpi .lbl{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+  .kpi.feature .lbl{color:rgba(255,248,240,.7)}
+  .kpi .val{font-family:var(--font-d);font-weight:430;font-size:42px;letter-spacing:-.04em;line-height:1;font-variation-settings:"opsz" 60}
+  .kpi.feature .val{color:var(--bg)}
+  .kpi .delta{font-family:var(--font-m);font-size:11px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:6px;margin-top:auto}
+  .delta.up{color:var(--moss)}
+  .delta.down{color:#B83423}
+  .kpi.feature .delta.up{color:var(--amber)}
+  .badge-acc{position:absolute;top:18px;right:18px;font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px;border-radius:999px;background:var(--pomelo);color:#fff}
+
+  .row-two{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px}
+  .panel-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:18px}
+  .panel-head .eye{font-family:var(--font-m);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+  .panel-head h3{font-family:var(--font-d);font-weight:480;font-size:22px;letter-spacing:-.015em;margin:4px 0 0}
+  .panel-head a{font-family:var(--font-b);font-size:12px;color:var(--pomelo);text-decoration:none;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+
+  .show-row{display:flex;align-items:center;gap:18px;padding:14px 0;border-bottom:1px solid var(--border)}
+  .show-row:last-child{border:0}
+  .date-card{flex-shrink:0;width:62px;text-align:center;padding:10px 6px;background:var(--bg);border-radius:10px;border:1px solid var(--border)}
+  .date-card .d{font-family:var(--font-d);font-weight:480;font-size:26px;letter-spacing:-.04em;line-height:1;display:block;color:var(--ink)}
+  .date-card .m{font-family:var(--font-m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--pomelo);margin-top:2px}
+  .show-row .info{flex:1;min-width:0}
+  .show-row .info b{font-family:var(--font-d);font-size:16px;font-weight:500;letter-spacing:-.01em;display:block;color:var(--ink)}
+  .show-row .info span{font-family:var(--font-m);font-size:11px;color:var(--ink-3);letter-spacing:.05em;margin-top:3px;display:inline-flex;align-items:center;gap:8px}
+  .show-row .info span .dt{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.5}
+  .tag{font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
+  .tag.live{background:rgba(68,107,74,.12);color:var(--moss);border:1px solid rgba(68,107,74,.25)}
+  .tag.draft{background:var(--bg);color:var(--ink-3);border:1px solid var(--border-strong)}
+  .tag.hot{background:var(--pomelo);color:#fff}
+
+  .shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .sc{padding:18px;background:var(--bg);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:transform .18s ease, border-color .18s ease}
+  .sc:hover{transform:translateY(-2px);border-color:var(--ink)}
+  .sc .ic{width:36px;height:36px;border-radius:8px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:18px}
+  .sc.amber .ic{background:var(--amber);color:var(--ink)}
+  .sc.plum .ic{background:var(--plum)}
+  .sc.moss .ic{background:var(--moss)}
+  .sc.sky .ic{background:var(--sky)}
+  .sc.pomelo .ic{background:var(--pomelo)}
+  .sc b{font-family:var(--font-d);font-size:16px;font-weight:500;letter-spacing:-.01em}
+  .sc span{font-family:var(--font-m);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+
+  .footer{text-align:center;font-family:var(--font-m);font-size:11px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;padding:24px 0}
+
+  @media (max-width: 900px){
+    .login{grid-template-columns:1fr}
+    .login__right{display:none}
+    .dash{grid-template-columns:1fr}
+    .sidebar{display:none}
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .row-two{grid-template-columns:1fr}
+    .shortcuts{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="header-meta">
+    <div>
+      <div class="kicker">Wireframe A · pomelo refined</div>
+      <h1 class="brand">VibraTickets <em>admin</em></h1>
+    </div>
+    <div class="kicker">Newsreader + Inter Tight · accent pomelo + amber + plum + moss</div>
+  </div>
+
+  <!-- LOGIN -->
+  <section class="login">
+    <div class="login__left">
+      <div></div>
+      <div>
+        <div class="login__eyebrow">N.º 01 · acceso interno</div>
+        <h2 class="login__title">Backstage para <em>productores</em>.</h2>
+        <p class="login__lede">Gestioná shows, monitoreá ventas, ajustá precios. Una sola consola para todo lo que ocurre detrás de la entrada.</p>
+        <div class="input-block">
+          <label>Email</label>
+          <input class="input" placeholder="staff@vibratickets.com" />
+        </div>
+        <div class="input-block">
+          <label>Contraseña</label>
+          <input class="input" type="password" placeholder="•••••••••••" />
+        </div>
+        <button class="btn-primary"><span>Ingresar al panel  →</span></button>
+      </div>
+      <div></div>
+    </div>
+    <div class="login__right">
+      <div class="top-tag">live · operación abierta</div>
+      <p class="login__quote">Tu show.<br><em>Tu data.</em><br><span class="amber">En tiempo real.</span></p>
+      <div class="login__meta">
+        <div><div>operación</div><b>24/7 · BA · MAD · MIA</b></div>
+        <div><div>cumplimiento</div><b>AFIP · MercadoPago</b></div>
+        <div><div>versión</div><b>v2.6 · pomelo build</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="dash">
+    <aside class="sidebar">
+      <div class="brand-mark">
+        <div class="mk">V</div>
+        <div>
+          <div class="nm">VibraTickets</div>
+          <span class="sub">admin · ar</span>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-section">General</div>
+        <div class="nav-item active"><span class="dot"></span>Resumen</div>
+        <div class="nav-item"><span class="dot"></span>Eventos</div>
+        <div class="nav-item"><span class="dot"></span>Funciones</div>
+        <div class="nav-item"><span class="dot"></span>Venues</div>
+        <div class="nav-item"><span class="dot"></span>Banners</div>
+        <div class="nav-section">Ventas</div>
+        <div class="nav-item"><span class="dot"></span>Órdenes</div>
+        <div class="nav-item"><span class="dot"></span>Códigos</div>
+        <div class="nav-item"><span class="dot"></span>Pagos</div>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="avatar">L</div>
+        <div class="foot-meta"><b>Lucas G.</b><span>admin</span></div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="title-block">
+          <div class="top-eye">VibraTickets · admin</div>
+          <h2>Resumen</h2>
+        </div>
+        <button class="top-action">⌕ Buscar</button>
+        <button class="top-action">↻ Sync</button>
+        <button class="top-action primary">+ Nuevo evento</button>
+      </header>
+
+      <div class="content">
+        <div class="page-head">
+          <div>
+            <div class="eye">Miércoles · 26 mayo</div>
+            <h1 class="greet">Buenas tardes, <em>Lucas</em>.</h1>
+            <p class="sub">Vista rápida del ecosistema VibraTickets. Lo importante, antes de que abras 5 pestañas.</p>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi feature">
+            <span class="badge-acc">+12%</span>
+            <div class="lbl">Ingresos mes</div>
+            <div class="val">$ 4.2M</div>
+            <div class="delta up">↗ $480K vs mes anterior</div>
+          </div>
+          <div class="kpi warm">
+            <div class="lbl">Eventos activos</div>
+            <div class="val">12</div>
+            <div class="delta up">↗ 3 nuevos esta semana</div>
+          </div>
+          <div class="kpi plum">
+            <div class="lbl">Órdenes hoy</div>
+            <div class="val">87</div>
+            <div class="delta up">↗ 24 pagas</div>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Asistentes</div>
+            <div class="val">2,914</div>
+            <div class="delta down">↘ -2% capacidad</div>
+          </div>
+        </div>
+
+        <div class="row-two">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eye">Próximos shows</div>
+                <h3>Cartelera</h3>
+              </div>
+              <a href="#">Ver todos →</a>
+            </div>
+            <div class="show-row">
+              <div class="date-card"><span class="d">28</span><span class="m">may</span></div>
+              <div class="info"><b>Iron Maiden — Run For Your Lives</b><span>Estadio River Plate<span class="dt"></span>21:00 hs<span class="dt"></span>vendido 78%</span></div>
+              <span class="tag hot">hot</span>
+            </div>
+            <div class="show-row">
+              <div class="date-card"><span class="d">31</span><span class="m">may</span></div>
+              <div class="info"><b>Bad Bunny — Most Wanted Tour</b><span>Hipódromo de Palermo<span class="dt"></span>22:30 hs<span class="dt"></span>sold out</span></div>
+              <span class="tag live">live</span>
+            </div>
+            <div class="show-row">
+              <div class="date-card"><span class="d">04</span><span class="m">jun</span></div>
+              <div class="info"><b>Lali Espósito — Disciplina Tour</b><span>Movistar Arena<span class="dt"></span>21:30 hs<span class="dt"></span>vendido 42%</span></div>
+              <span class="tag live">live</span>
+            </div>
+            <div class="show-row">
+              <div class="date-card"><span class="d">12</span><span class="m">jun</span></div>
+              <div class="info"><b>Drexler — Tinta y Tiempo</b><span>Gran Rex<span class="dt"></span>20:00 hs<span class="dt"></span>vendido 18%</span></div>
+              <span class="tag draft">draft</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eye">Atajos</div>
+                <h3>Operaciones</h3>
+              </div>
+            </div>
+            <div class="shortcuts">
+              <div class="sc pomelo"><div class="ic">▤</div><b>Eventos</b><span>crud</span></div>
+              <div class="sc amber"><div class="ic">◷</div><b>Funciones</b><span>agenda</span></div>
+              <div class="sc plum"><div class="ic">$</div><b>Órdenes</b><span>ventas</span></div>
+              <div class="sc moss"><div class="ic">✓</div><b>Reportes</b><span>finanzas</span></div>
+              <div class="sc sky"><div class="ic">⚙</div><b>MP</b><span>config</span></div>
+              <div class="sc"><div class="ic">⌗</div><b>Usuarios</b><span>roles</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">Wireframe A · Pomelo refined · static mockup · clic en el browser para validar typografía + color</div>
+</div>
+</body>
+</html>

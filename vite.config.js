@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: './src/test/setup.js',
+      css: false,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -28,6 +34,23 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           cookieDomainRewrite: "", // Rewrite cookie domain to match the dev server
+          // DEV-ONLY: la cookie de prod es Secure;SameSite=None y no se guarda en http://localhost.
+          // Reescribimos Set-Cookie para que funcione en el dev server. No afecta producción (vite.config no se deploya).
+          configure: (proxy) => {
+            // DEV-ONLY: el backend de prod whitelistea por Origin. Reescribimos el Origin
+            // a un dominio permitido para pasar el CORS desde el dev server local.
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setHeader('origin', 'https://admin.vibratickets.online');
+            });
+            proxy.on('proxyRes', (proxyRes) => {
+              const sc = proxyRes.headers['set-cookie'];
+              if (sc) {
+                proxyRes.headers['set-cookie'] = sc.map((c) =>
+                  c.replace(/;\s*Secure/gi, '').replace(/SameSite=None/gi, 'SameSite=Lax')
+                );
+              }
+            });
+          },
         },
         '/uploads': {
           target: apiTarget,

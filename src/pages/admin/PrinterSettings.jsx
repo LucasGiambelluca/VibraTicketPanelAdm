@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Select, Button, Space, Alert, Typography, message, Divider } from 'antd';
 import { PrinterOutlined, ReloadOutlined } from '@ant-design/icons';
 import { isTauri, listPrinters, printTest, printTicket } from '../../lib/tauri';
+import TicketDesigner from '../../components/admin/TicketDesigner';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -96,83 +97,100 @@ export default function PrinterSettings() {
 
   if (!desktop) {
     return (
-      <Card style={{ maxWidth: 720, margin: '24px auto' }}>
-        <Title level={4}>
-          <PrinterOutlined /> Impresora de tickets
-        </Title>
-        <Alert
-          type="info"
-          showIcon
-          message="Solo en la app de escritorio"
-          description="La impresión de tickets ESC/POS está disponible únicamente en la aplicación VibraTickets Admin para Windows/macOS, no en el navegador."
-        />
-      </Card>
+      <>
+        <Card style={{ maxWidth: 720, margin: '24px auto' }}>
+          <Title level={4}>
+            <PrinterOutlined /> Impresora de tickets
+          </Title>
+          <Alert
+            type="info"
+            showIcon
+            message="Solo en la app de escritorio"
+            description="La impresión de tickets ESC/POS está disponible únicamente en la aplicación VibraTickets Admin para Windows/macOS, no en el navegador."
+          />
+        </Card>
+        <Card
+          title="Diseño del ticket impreso (default para todos los eventos)"
+          style={{ maxWidth: 1100, margin: '16px auto 0' }}
+        >
+          <TicketDesigner />
+        </Card>
+      </>
     );
   }
 
   return (
-    <Card style={{ maxWidth: 720, margin: '24px auto' }}>
-      <Title level={4}>
-        <PrinterOutlined /> Impresora de tickets
-      </Title>
-      <Paragraph type="secondary">
-        Elegí la impresora térmica ESC/POS y probá la impresión antes de usarla en
-        el flujo real.
-      </Paragraph>
+    <>
+      <Card style={{ maxWidth: 720, margin: '24px auto' }}>
+        <Title level={4}>
+          <PrinterOutlined /> Impresora de tickets
+        </Title>
+        <Paragraph type="secondary">
+          Elegí la impresora térmica ESC/POS y probá la impresión antes de usarla en
+          el flujo real.
+        </Paragraph>
 
-      <Space.Compact style={{ width: '100%' }}>
-        <Select
-          style={{ width: '100%' }}
-          placeholder="Seleccioná una impresora"
-          value={selected || undefined}
-          onChange={onSelect}
-          loading={loading}
-          options={printers.map((p) => ({
-            value: p.name,
-            label: p.is_default ? `${p.name}  (predeterminada)` : p.name,
-          }))}
-        />
-        <Button icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
-          Actualizar
-        </Button>
-      </Space.Compact>
+        <Space.Compact style={{ width: '100%' }}>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Seleccioná una impresora"
+            value={selected || undefined}
+            onChange={onSelect}
+            loading={loading}
+            options={printers.map((p) => ({
+              value: p.name,
+              label: p.is_default ? `${p.name}  (predeterminada)` : p.name,
+            }))}
+          />
+          <Button icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
+            Actualizar
+          </Button>
+        </Space.Compact>
 
-      <Divider />
+        <Divider />
 
-      <Space wrap>
-        <Button type="default" icon={<PrinterOutlined />} onClick={onTest} disabled={!selected}>
-          Imprimir ticket de prueba
-        </Button>
-        <Button type="primary" icon={<PrinterOutlined />} onClick={onSampleTicket} disabled={!selected}>
-          Imprimir ticket de muestra
-        </Button>
-      </Space>
+        <Space wrap>
+          <Button type="default" icon={<PrinterOutlined />} onClick={onTest} disabled={!selected}>
+            Imprimir ticket de prueba
+          </Button>
+          <Button type="primary" icon={<PrinterOutlined />} onClick={onSampleTicket} disabled={!selected}>
+            Imprimir ticket de muestra
+          </Button>
+        </Space>
 
-      {error && (
-        <Alert
-          style={{ marginTop: 16 }}
-          type="error"
-          showIcon
-          message="Error de impresión"
-          description={error}
-          closable
-          onClose={() => setError(null)}
-        />
-      )}
+        {error && (
+          <Alert
+            style={{ marginTop: 16 }}
+            type="error"
+            showIcon
+            message="Error de impresión"
+            description={error}
+            closable
+            onClose={() => setError(null)}
+          />
+        )}
 
-      {printers.length === 0 && !loading && !error && (
-        <Alert
-          style={{ marginTop: 16 }}
-          type="warning"
-          showIcon
-          message="No se detectaron impresoras"
-          description="Conectá una impresora y tocá Actualizar."
-        />
-      )}
+        {printers.length === 0 && !loading && !error && (
+          <Alert
+            style={{ marginTop: 16 }}
+            type="warning"
+            showIcon
+            message="No se detectaron impresoras"
+            description="Conectá una impresora y tocá Actualizar."
+          />
+        )}
 
-      <Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
-        El contenido firmado del QR lo genera el backend; el desktop solo lo imprime.
-      </Text>
-    </Card>
+        <Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
+          El contenido firmado del QR lo genera el backend; el desktop solo lo imprime.
+        </Text>
+      </Card>
+
+      <Card
+        title="Diseño del ticket impreso (default para todos los eventos)"
+        style={{ maxWidth: 1100, margin: '16px auto 0' }}
+      >
+        <TicketDesigner />
+      </Card>
+    </>
   );
 }

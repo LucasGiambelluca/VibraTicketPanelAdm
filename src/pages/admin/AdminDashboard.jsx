@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Typography, Button, Table, Space, Form, Input, Modal, Card, Select, DatePicker, Upload, message, Tag, Row, Col, Statistic, Avatar, Spin, Divider, Grid, Dropdown } from 'antd';
+import { Layout, Menu, Typography, Button, Table, Space, Form, Input, Modal, Card, Select, DatePicker, Upload, message, Tag, Row, Col, Statistic, Avatar, Spin, Divider, Grid, Dropdown, Drawer } from 'antd';
 import AdminShell from '../../components/layout/AdminShell';
 import DashboardHome from './DashboardHome';
 import { 
@@ -22,7 +22,8 @@ import {
   TagsOutlined,
   ReloadOutlined,
   DollarOutlined,
-  MoreOutlined
+  MoreOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
 import CreateEvent from '../../components/CreateEvent';
 import CreateVenue from '../../components/CreateVenue';
@@ -40,6 +41,7 @@ import SettingsAdmin from './SettingsAdmin';
 import DiscountCodes from './DiscountCodes';
 import PaymentMonitor from './PaymentMonitor';
 import ProducersPanel from './ProducersPanel';
+import TicketDesigner from '../../components/admin/TicketDesigner';
 import { getImageUrl } from '../../utils/imageUtils';
 import { useEvents } from '../../hooks/useEvents';
 import { showsApi, eventsApi, eventStylesApi } from '../../services/apiService';
@@ -215,6 +217,8 @@ function EventsAdmin() {
   const [selectedEventForImages, setSelectedEventForImages] = useState(null);
   const [eventStyles, setEventStyles] = useState({});
   const [savingStyles, setSavingStyles] = useState(false);
+  // Diseñador de ticket impreso por evento (Drawer)
+  const [ticketDesignerEvent, setTicketDesignerEvent] = useState(null);
   // Venues para seleccionar uno opcional al crear show
   const venuesHook = useVenues({ limit: 100, sortBy: 'name' });
   
@@ -448,6 +452,12 @@ function EventsAdmin() {
               onClick: () => handleAssignTickets(record)
             },
             {
+              key: 'ticket-designer',
+              label: 'Diseño de ticket',
+              icon: <PrinterOutlined />,
+              onClick: () => setTicketDesignerEvent(record)
+            },
+            {
               type: 'divider'
             },
             {
@@ -481,19 +491,25 @@ function EventsAdmin() {
                 onClick={() => handleEditEvent(record)}
                 title="Editar evento"
               />
-              <Button 
-                icon={<UploadOutlined />} 
-                size="small" 
+              <Button
+                icon={<UploadOutlined />}
+                size="small"
                 style={{ background: '#52c41a', borderColor: '#52c41a', color: 'white' }}
                 onClick={() => handleManageImages(record)}
                 title="Gestionar imágenes"
               >
                 📸
               </Button>
-              <Button 
-                icon={<DeleteOutlined />} 
-                size="small" 
-                danger 
+              <Button
+                icon={<PrinterOutlined />}
+                size="small"
+                onClick={() => setTicketDesignerEvent(record)}
+                title="Diseño de ticket"
+              />
+              <Button
+                icon={<DeleteOutlined />}
+                size="small"
+                danger
                 onClick={() => handleDeleteEvent(record.id)}
                 title="Eliminar evento"
               />
@@ -511,7 +527,7 @@ function EventsAdmin() {
       },
     },
   ];
-  
+
   // Abrir modal de asignación de entradas
   const handleAssignTickets = async (eventRecord) => {
     try {
@@ -1374,6 +1390,16 @@ function EventsAdmin() {
           </div>
         )}
       </Modal>
+
+      <Drawer
+        title={`Diseño de ticket — ${ticketDesignerEvent?.name ?? ''}`}
+        width={1100}
+        open={!!ticketDesignerEvent}
+        onClose={() => setTicketDesignerEvent(null)}
+        destroyOnClose
+      >
+        {ticketDesignerEvent && <TicketDesigner eventId={ticketDesignerEvent.id} />}
+      </Drawer>
     </Card>
     </div>
   );

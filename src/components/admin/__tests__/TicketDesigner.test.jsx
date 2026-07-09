@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import TicketDesigner from '../TicketDesigner';
 import * as ticketTemplateService from '../../../services/ticketTemplateService';
 
@@ -70,5 +71,37 @@ describe('TicketDesigner', () => {
 
     // El componente sigue montado y usable pese al error de preview.
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeInTheDocument();
+  });
+
+  it('guarda el config sparse tal cual: solo las zonas originales + la tocada', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.getTemplate.mockResolvedValue({
+      config: { v: 1, zonas: { precio: { row: 280 } }, stubEndCol: 250 },
+      logoFilename: null,
+      source: 'default',
+    });
+
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Venue y dirección')).toBeInTheDocument());
+
+    // Apagar SOLO la zona venue desde el switch del header de su panel.
+    const venueHeader = screen
+      .getByText('Venue y dirección')
+      .closest('.ant-collapse-header');
+    await user.click(within(venueHeader).getByRole('switch'));
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(ticketTemplateService.saveTemplate).toHaveBeenCalled());
+
+    const [eventIdArg, config] = vi.mocked(ticketTemplateService.saveTemplate).mock.calls.at(-1);
+    expect(eventIdArg).toBeNull();
+    expect(config.v).toBe(1);
+    // El config queda sparse: exactamente las zonas originales + la tocada.
+    expect(Object.keys(config.zonas).sort()).toEqual(['precio', 'venue']);
+    expect(Object.keys(config.zonas)).not.toContain('pie');
+    expect(Object.keys(config.zonas)).not.toContain('codigo');
+    // La zona original no se toca; la tocada solo lleva el campo modificado.
+    expect(config.zonas.precio).toEqual({ row: 280 });
+    expect(config.zonas.venue).toEqual({ visible: false });
   });
 });

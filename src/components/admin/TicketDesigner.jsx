@@ -84,6 +84,9 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [warnings, setWarnings] = useState([]);
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
+  // Secuencia anti-stale: solo la respuesta del preview más reciente puede
+  // tocar el estado (una request lenta A no debe pisar a una más nueva B).
+  const previewSeq = useRef(0);
 
   // Carga inicial / al cambiar de evento.
   useEffect(() => {
@@ -108,13 +111,16 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   useEffect(() => {
     if (!cfg) return undefined;
     const timer = setTimeout(() => {
+      const seq = ++previewSeq.current;
       previewTemplate(withV(cfg), fixture, logoFilename)
         .then(({ fgl }) => {
+          if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
           const parsed = parseFgl(fgl);
           setElements(parsed.elements);
           setWarnings(parsed.warnings);
         })
         .catch((err) => {
+          if (seq !== previewSeq.current) return;
           message.error(apiErrorDetail(err) || 'No se pudo generar la vista previa');
         });
     }, 400);
@@ -147,7 +153,14 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   };
 
   const setLeyendasText = (text) => {
-    const lines = text.split('\n').slice(0, 3);
+    // filter(Boolean): Joi rechaza strings vacíos dentro del array
+    // ("is not allowed to be empty"), así que textarea vacío o líneas en
+    // blanco ⇒ se descartan; con el toggle ON queda [] = "forzar ninguna".
+    const lines = text
+      .split('\n')
+      .map((l) => l.trimEnd())
+      .filter(Boolean)
+      .slice(0, 3);
     setCfg((prev) => ({ ...prev, leyendas: lines }));
   };
 

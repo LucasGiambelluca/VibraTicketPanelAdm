@@ -73,6 +73,26 @@ const ZONES = [
 // desconocidas con Joi .unknown(false), así que nunca agregamos nada más).
 const withV = (cfg) => (cfg && cfg.v ? cfg : { ...(cfg || {}), v: 1 });
 
+// Sanitiza el texto crudo del textarea de leyendas SOLO en la frontera del
+// payload (preview/save). El estado del textarea nunca pasa por acá, así el
+// tipeo (Enter, espacios, líneas en blanco intermedias) no se pisa en el DOM.
+// Joi rechaza strings vacíos y >60 chars; el array admite máx. 3 items.
+const cleanLeyendas = (text) =>
+  String(text)
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((s) => s.slice(0, 60));
+
+// Config listo para el backend: v garantizado + leyendas derivadas del estado
+// del textarea (ON → array limpio, incluso [] = "forzar ninguna"; OFF → null
+// = usar los datos del evento). Las zonas sparse van tal cual.
+const buildPayload = (cfg, leyendasOn, leyendasText) => ({
+  ...withV(cfg),
+  leyendas: leyendasOn ? cleanLeyendas(leyendasText) : null,
+});
+
 const apiErrorDetail = (err) => err?.response?.data?.detail;
 
 export default function TicketDesigner({ eventId = null, onSaved }) {
@@ -84,6 +104,11 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [warnings, setWarnings] = useState([]);
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
+  // Leyendas: el textarea guarda el string CRUDO (typing-friendly, sin
+  // sanitizar) y un boolean separado dice si la personalización está activa.
+  // La sanitización ocurre solo en buildPayload (frontera preview/save).
+  const [leyendasOn, setLeyendasOn] = useState(false);
+  const [leyendasText, setLeyendasText] = useState('');
   // Secuencia anti-stale: solo la respuesta del preview más reciente puede
   // tocar el estado (una request lenta A no debe pisar a una más nueva B).
   const previewSeq = useRef(0);
@@ -97,6 +122,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         setCfg(config || { v: 1, zonas: {}, leyendas: null });
         setLogoFilename(lf || null);
         setSource(src || 'default');
+        setLeyendasOn(Array.isArray(config?.leyendas));
+        setLeyendasText(config?.leyendas?.join('\n') ?? '');
       })
       .catch(() => {
         if (!cancelled) message.error('No se pudo cargar la plantilla');
@@ -106,13 +133,13 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     };
   }, [eventId]);
 
-  // Preview en vivo: cualquier cambio de config/fixture/logo dispara un
-  // preview debounced 400ms contra el backend (única fuente de verdad FGL).
+  // Preview en vivo: cualquier cambio de config/fixture/logo/leyendas dispara
+  // un preview debounced 400ms contra el backend (única fuente de verdad FGL).
   useEffect(() => {
     if (!cfg) return undefined;
     const timer = setTimeout(() => {
       const seq = ++previewSeq.current;
-      previewTemplate(withV(cfg), fixture, logoFilename)
+      previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename)
         .then(({ fgl }) => {
           if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
           const parsed = parseFgl(fgl);
@@ -125,7 +152,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [cfg, fixture, logoFilename]);
+  }, [cfg, fixture, logoFilename, leyendasOn, leyendasText]);
 
   // Merge inmutable sobre cfg.zonas[key], preservando el resto del config
   // sparse tal cual vino del backend (solo se escriben los campos tocados).
@@ -143,32 +170,11 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     setCfg((prev) => ({ ...prev, stubEndCol: value }));
   };
 
-  // `leyendas` es un caso especial: null = "usar los datos del evento",
-  // array = "forzar exactamente estas leyendas" (incluso [] = ninguna).
-  const setLeyendasEnabled = (checked) => {
-    setCfg((prev) => ({
-      ...prev,
-      leyendas: checked ? (Array.isArray(prev.leyendas) ? prev.leyendas : []) : null,
-    }));
-  };
-
-  const setLeyendasText = (text) => {
-    // filter(Boolean): Joi rechaza strings vacíos dentro del array
-    // ("is not allowed to be empty"), así que textarea vacío o líneas en
-    // blanco ⇒ se descartan; con el toggle ON queda [] = "forzar ninguna".
-    const lines = text
-      .split('\n')
-      .map((l) => l.trimEnd())
-      .filter(Boolean)
-      .slice(0, 3);
-    setCfg((prev) => ({ ...prev, leyendas: lines }));
-  };
-
   const handleSave = async () => {
     if (!cfg) return;
     setSaving(true);
     try {
-      await saveTemplate(eventId, withV(cfg));
+      await saveTemplate(eventId, buildPayload(cfg, leyendasOn, leyendasText));
       message.success('Plantilla guardada');
       onSaved?.();
     } catch (err) {
@@ -186,6 +192,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
       setCfg(config || { v: 1, zonas: {}, leyendas: null });
       setLogoFilename(lf || null);
       setSource(src || 'default');
+      setLeyendasOn(Array.isArray(config?.leyendas));
+      setLeyendasText(config?.leyendas?.join('\n') ?? '');
       message.success('Ahora usa la plantilla global');
     } catch (err) {
       message.error(apiErrorDetail(err) || 'No se pudo revertir la plantilla');
@@ -267,16 +275,16 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           {zone.key === 'leyendas' && (
             <>
               <Checkbox
-                checked={Array.isArray(cfg.leyendas)}
-                onChange={(e) => setLeyendasEnabled(e.target.checked)}
+                checked={leyendasOn}
+                onChange={(e) => setLeyendasOn(e.target.checked)}
               >
                 Usar leyendas propias
               </Checkbox>
               <TextArea
                 rows={3}
                 placeholder="Una leyenda por línea (máx. 3)"
-                disabled={!Array.isArray(cfg.leyendas)}
-                value={Array.isArray(cfg.leyendas) ? cfg.leyendas.join('\n') : ''}
+                disabled={!leyendasOn}
+                value={leyendasText}
                 onChange={(e) => setLeyendasText(e.target.value)}
               />
             </>

@@ -24,6 +24,9 @@ vi.mock('../../../services/ticketTemplateService', () => ({
 
 describe('TicketDesigner', () => {
   beforeEach(() => {
+    // Limpia calls/resultados entre tests (las implementaciones se re-setean
+    // abajo) para que mock.calls.at(-1) nunca lea una llamada de otro test.
+    vi.clearAllMocks();
     ticketTemplateService.getTemplate.mockResolvedValue({
       config: { v: 1, zonas: { precio: { row: 280, visible: true } }, stubEndCol: 250 },
       logoFilename: null,
@@ -103,5 +106,38 @@ describe('TicketDesigner', () => {
     // La zona original no se toca; la tocada solo lleva el campo modificado.
     expect(config.zonas.precio).toEqual({ row: 280 });
     expect(config.zonas.venue).toEqual({ visible: false });
+  });
+
+  it('el textarea de leyendas preserva el tipeo crudo y el payload sale limpio', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Leyendas')).toBeInTheDocument());
+
+    // Expandir el panel Leyendas (Collapse no monta los children hasta abrir).
+    await user.click(screen.getByText('Leyendas'));
+    await user.click(screen.getByRole('checkbox', { name: 'Usar leyendas propias' }));
+
+    const textarea = screen.getByPlaceholderText('Una leyenda por línea (máx. 3)');
+    // Multi-palabra + trailing space + línea en blanco intermedia.
+    await user.type(textarea, 'linea uno {enter}{enter}linea dos');
+
+    // El DOM conserva el tipeo tal cual: espacios, Enter y la línea en blanco
+    // no se pisan por re-render del controlled input (sin sanitizar acá).
+    expect(textarea).toHaveValue('linea uno \n\nlinea dos');
+
+    // El preview debounced recibe el array limpio (trim + sin vacíos).
+    await waitFor(
+      () => {
+        const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+        expect(config.leyendas).toEqual(['linea uno', 'linea dos']);
+      },
+      { timeout: 2000 }
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(ticketTemplateService.saveTemplate).toHaveBeenCalled());
+
+    const [, config] = vi.mocked(ticketTemplateService.saveTemplate).mock.calls.at(-1);
+    expect(config.leyendas).toEqual(['linea uno', 'linea dos']);
   });
 });

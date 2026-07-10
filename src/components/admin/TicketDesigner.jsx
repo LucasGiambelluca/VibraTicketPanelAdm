@@ -10,7 +10,6 @@ import {
   Slider,
   Switch,
   InputNumber,
-  Select,
   Checkbox,
   Input,
   Button,
@@ -58,18 +57,28 @@ const SIZE_OPTIONS = [
 // Metadata de las zonas editables (coincide con las claves válidas de
 // controllers/ticketTemplate.controller.js:configSchema en el backend).
 // La zona `qr` no tiene panel propio (se posiciona junto con el logo/talón).
+// `sizeDefault` es el tamaño que aplica el motor cuando la zona no trae
+// `size` explícito (services/fglTemplate.js:DEFAULT_CONFIG.zonas, verificado
+// ahí mismo — no en este archivo). codigo/emision/leyendas/pie siempre
+// imprimen en F1 fijo (sin escalera de tamaño), por eso no llevan control.
 const ZONES = [
-  { key: 'evento', label: 'Nombre del evento', hasSize: true, hasCol: false },
-  { key: 'venue', label: 'Venue y dirección', hasSize: true, hasCol: false },
-  { key: 'fecha', label: 'Fecha y hora', hasSize: true, hasCol: false },
-  { key: 'sector', label: 'Sector / entrada', hasSize: true, hasCol: false },
-  { key: 'precio', label: 'Precio', hasSize: true, hasCol: false },
+  { key: 'evento', label: 'Nombre del evento', hasSize: true, hasCol: false, sizeDefault: 'G' },
+  { key: 'venue', label: 'Venue y dirección', hasSize: true, hasCol: false, sizeDefault: 'M' },
+  { key: 'fecha', label: 'Fecha y hora', hasSize: true, hasCol: false, sizeDefault: 'G' },
+  { key: 'sector', label: 'Sector / entrada', hasSize: true, hasCol: false, sizeDefault: 'M' },
+  { key: 'precio', label: 'Precio', hasSize: true, hasCol: false, sizeDefault: 'M' },
   { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: true },
   { key: 'pie', label: 'Pie legal', hasSize: false, hasCol: false },
   { key: 'codigo', label: 'Código talón', hasSize: false, hasCol: true },
   { key: 'emision', label: 'Fecha emisión talón', hasSize: false, hasCol: true },
   { key: 'logo', label: 'Logo', hasSize: false, hasCol: true },
 ];
+
+// Tamaño default del logo cuando la zona no trae maxW/maxH explícito (dots,
+// ver services/fglTemplate.js:DEFAULT_CONFIG.zonas.logo). Topes 16-400 / 16-200
+// coinciden con el Joi de zonaSchema en ticketTemplate.controller.js.
+const LOGO_MAXW_DEFAULT = 200;
+const LOGO_MAXH_DEFAULT = 100;
 
 // Garantiza `v: 1` sin tocar el resto del config (el backend rechaza claves
 // desconocidas con Joi .unknown(false), así que nunca agregamos nada más).
@@ -406,14 +415,17 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
             />
           )}
           {zone.hasSize && (
-            <Select
-              placeholder="Tamaño"
-              style={{ width: '100%' }}
-              allowClear
-              options={SIZE_OPTIONS}
-              value={zona.size}
-              onChange={(v) => setZona(zone.key, { size: v ?? undefined })}
-            />
+            <div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Tamaño
+              </Text>
+              <Segmented
+                block
+                options={SIZE_OPTIONS}
+                value={zona.size ?? zone.sizeDefault}
+                onChange={(v) => setZona(zone.key, { size: v })}
+              />
+            </div>
           )}
           {zone.key === 'leyendas' && (
             <>
@@ -442,6 +454,28 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
                   {logoFilename}
                 </Text>
               )}
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Ancho: {zona.maxW ?? LOGO_MAXW_DEFAULT} dots
+                </Text>
+                <Slider
+                  min={16}
+                  max={400}
+                  value={zona.maxW ?? LOGO_MAXW_DEFAULT}
+                  onChange={(v) => setZona('logo', { maxW: v })}
+                />
+              </div>
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Alto: {zona.maxH ?? LOGO_MAXH_DEFAULT} dots
+                </Text>
+                <Slider
+                  min={16}
+                  max={200}
+                  value={zona.maxH ?? LOGO_MAXH_DEFAULT}
+                  onChange={(v) => setZona('logo', { maxH: v })}
+                />
+              </div>
             </Space>
           )}
         </Space>

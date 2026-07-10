@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { message } from 'antd';
 import TicketDesigner from '../TicketDesigner';
@@ -293,5 +293,70 @@ describe('TicketDesigner', () => {
 
     const printButton = await screen.findByRole('button', { name: /Imprimir prueba/ });
     await waitFor(() => expect(printButton).toBeDisabled());
+  });
+
+  it('cambiar el tamaño de "evento" a Chico viaja en el próximo preview', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Nombre del evento')).toBeInTheDocument());
+    await waitFor(() => expect(ticketTemplateService.previewTemplate).toHaveBeenCalled());
+
+    // Expandir el panel (Collapse no monta los children hasta abrir).
+    await user.click(screen.getByText('Nombre del evento'));
+    const panel = screen.getByText('Nombre del evento').closest('.ant-collapse-item');
+    // El <input type="radio"> de rc-segmented tiene pointer-events:none (solo
+    // visualmente accesible); el click real cae en el <label> que lo envuelve,
+    // que es lo que arrastra el texto de la opción ("Chico").
+    await user.click(within(panel).getByText('Chico'));
+
+    await waitFor(
+      () => {
+        const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+        expect(config.zonas.evento.size).toBe('C');
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  it('mover el slider "Ancho" del logo viaja como maxW en el próximo preview', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Logo')).toBeInTheDocument());
+    await waitFor(() => expect(ticketTemplateService.previewTemplate).toHaveBeenCalled());
+
+    // Expandir el panel (Collapse no monta los children hasta abrir).
+    await user.click(screen.getByText('Logo'));
+    const panel = screen.getByText('Logo').closest('.ant-collapse-item');
+    // Sin maxW explícito en el config, el slider arranca en el default del
+    // motor (200 dots, ver LOGO_MAXW_DEFAULT) — es el primero de los dos
+    // sliders de la zona logo (Ancho antes que Alto).
+    const [anchoSlider] = within(panel).getAllByRole('slider');
+    expect(anchoSlider).toHaveAttribute('aria-valuenow', '200');
+
+    anchoSlider.focus();
+    fireEvent.keyDown(anchoSlider, { key: 'ArrowRight', keyCode: 39, which: 39 });
+
+    await waitFor(
+      () => {
+        const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+        expect(config.zonas.logo.maxW).toBe(201);
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  it('las zonas codigo/emision/leyendas/pie no tienen control de tamaño (F1 fijo, sin escalera)', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Precio')).toBeInTheDocument());
+
+    for (const label of ['Código talón', 'Fecha emisión talón', 'Leyendas', 'Pie legal']) {
+      await user.click(screen.getByText(label));
+    }
+
+    // Ninguna de estas zonas usa la escalera de tamaño del motor (F1 fijo):
+    // no debe renderizarse el selector "Tamaño" en ninguno de sus paneles.
+    expect(screen.queryByText('Tamaño')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Chico' })).not.toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { message } from 'antd';
 import TicketDesigner from '../TicketDesigner';
 import * as ticketTemplateService from '../../../services/ticketTemplateService';
+import * as printAgentService from '../../../services/printAgentService';
 
 // jsdom no implementa ResizeObserver: TicketCanvas lo usa para medir su
 // ancho y escalar el lienzo de 1050x384 dots. Sin este stub, render()
@@ -23,6 +24,11 @@ vi.mock('../../../services/ticketTemplateService', () => ({
   deleteTemplate: vi.fn(), uploadLogo: vi.fn(),
 }));
 
+vi.mock('../../../services/printAgentService', () => ({
+  agentStatus: vi.fn().mockResolvedValue({ ok: true, printerReachable: true }),
+  agentPrint: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 describe('TicketDesigner', () => {
   beforeEach(() => {
     // Limpia calls/resultados entre tests (las implementaciones se re-setean
@@ -34,6 +40,8 @@ describe('TicketDesigner', () => {
       source: 'default',
     });
     ticketTemplateService.previewTemplate.mockResolvedValue({ fgl: '<RC280,280><F3>$ 1,00\n<p>' });
+    printAgentService.agentStatus.mockResolvedValue({ ok: true, printerReachable: true });
+    printAgentService.agentPrint.mockResolvedValue({ ok: true });
   });
 
   it('carga config y muestra controles + preview', async () => {
@@ -252,5 +260,38 @@ describe('TicketDesigner', () => {
     await waitFor(() =>
       expect(errorSpy).toHaveBeenCalledWith('La imagen supera 1 MB. Probá con una más liviana.')
     );
+  });
+
+  it('el botón "Imprimir prueba" envía el FGL del preview actual al agente de impresión', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.previewTemplate.mockResolvedValue({ fgl: '<RC10,10><F3>ECO-PRUEBA\n<p>' });
+
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Precio')).toBeInTheDocument());
+
+    // name: regex porque el icono PrinterOutlined agrega su aria-label
+    // ("printer") al nombre accesible calculado del botón.
+    const printButton = await screen.findByRole('button', { name: /Imprimir prueba/ });
+    await waitFor(() => expect(printButton).not.toBeDisabled());
+
+    await user.click(printButton);
+
+    await waitFor(() => expect(printAgentService.agentPrint).toHaveBeenCalled());
+    const [fglBase64] = vi.mocked(printAgentService.agentPrint).mock.calls.at(-1);
+    // agentPrint espera el FGL en base64 (mismo contrato que boxoffice); acá
+    // se decodifica para verificar que es exactamente el FGL que devolvió
+    // el preview más reciente en el momento del click.
+    const decoded = Buffer.from(fglBase64, 'base64').toString('utf8');
+    expect(decoded).toBe('<RC10,10><F3>ECO-PRUEBA\n<p>');
+  });
+
+  it('el botón "Imprimir prueba" queda deshabilitado si la impresora no está disponible', async () => {
+    printAgentService.agentStatus.mockResolvedValue({ ok: false, printerReachable: false });
+
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Precio')).toBeInTheDocument());
+
+    const printButton = await screen.findByRole('button', { name: /Imprimir prueba/ });
+    await waitFor(() => expect(printButton).toBeDisabled());
   });
 });

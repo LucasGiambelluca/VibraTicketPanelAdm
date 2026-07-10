@@ -20,9 +20,10 @@ import {
   Alert,
   Upload,
   Spin,
+  Tooltip,
   message,
 } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { UploadOutlined, PrinterOutlined } from '@ant-design/icons';
 import {
   getTemplate,
   saveTemplate,
@@ -30,6 +31,7 @@ import {
   previewTemplate,
   uploadLogo,
 } from '../../services/ticketTemplateService';
+import { agentStatus, agentPrint } from '../../services/printAgentService';
 import { parseFgl, FONTS } from '../../utils/fglSimulator';
 
 const { Text } = Typography;
@@ -140,6 +142,21 @@ async function maybeDownscaleLogo(file) {
   return new File([blob], `${baseName}.png`, { type: 'image/png' });
 }
 
+// agentPrint (agente HTTP local y comando Tauri boca_print) espera el FGL en
+// base64 — mismo contrato que boxoffice.controller.js:getTicketFgl — pero
+// /admin/ticket-template/preview devuelve el FGL como texto plano (lo
+// consume fglSimulator.parseFgl tal cual para dibujar el preview). Por eso
+// se codifica acá antes de imprimir; sin esto el ticket de prueba llegaría
+// corrupto a la impresora. UTF-8 safe (nombres de evento con tildes/ñ).
+function fglToBase64(fgl) {
+  const bytes = new TextEncoder().encode(String(fgl || ''));
+  let binary = '';
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary);
+}
+
 export default function TicketDesigner({ eventId = null, onSaved }) {
   const [cfg, setCfg] = useState(null);
   const [logoFilename, setLogoFilename] = useState(null);
@@ -151,6 +168,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [reverting, setReverting] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [reloadTick, setReloadTick] = useState(0);
+  const [testPrinting, setTestPrinting] = useState(false);
+  const [agentState, setAgentState] = useState({ checking: true, ok: false, printerReachable: false });
   // Leyendas: el textarea guarda el string CRUDO (typing-friendly, sin
   // sanitizar) y un boolean separado dice si la personalización está activa.
   // La sanitización ocurre solo en buildPayload (frontera preview/save).
@@ -181,6 +200,24 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
       cancelled = true;
     };
   }, [eventId, reloadTick]);
+
+  // Estado del agente/impresora BOCA (mismo chequeo que BoxOffice.jsx) para
+  // habilitar/deshabilitar el botón "Imprimir prueba" con motivo en tooltip.
+  useEffect(() => {
+    let cancelled = false;
+    agentStatus()
+      .then((st) => {
+        if (cancelled) return;
+        setAgentState({ checking: false, ok: true, printerReachable: !!st.printerReachable });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAgentState({ checking: false, ok: false, printerReachable: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Preview en vivo: cualquier cambio de config/fixture/logo/leyendas dispara
   // un preview debounced 400ms contra el backend (única fuente de verdad FGL).
@@ -277,6 +314,24 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     return false; // evita que antd intente subir el archivo por su cuenta
   };
 
+  const handleTestPrint = async () => {
+    if (!cfg) return;
+    setTestPrinting(true);
+    try {
+      const { fgl } = await previewTemplate(
+        buildPayload(cfg, leyendasOn, leyendasText),
+        fixture,
+        logoFilename
+      );
+      await agentPrint(fglToBase64(fgl));
+      message.success('Ticket de prueba enviado a la impresora');
+    } catch (err) {
+      message.error(err?.message || apiErrorDetail(err) || 'No se pudo imprimir el ticket de prueba');
+    } finally {
+      setTestPrinting(false);
+    }
+  };
+
   if (loadError) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
@@ -301,6 +356,15 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   }
 
   const stubEndCol = cfg.stubEndCol ?? DEFAULT_STUB_END_COL;
+
+  const printerReady = agentState.ok && agentState.printerReachable;
+  const printDisabledReason = agentState.checking
+    ? 'Comprobando impresora…'
+    : !agentState.ok
+    ? 'Agente de impresión no disponible'
+    : !agentState.printerReachable
+    ? 'Impresora inaccesible'
+    : '';
 
   const panelItems = ZONES.map((zone) => {
     const zona = (cfg.zonas || {})[zone.key] || {};
@@ -415,7 +479,21 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
 
       <div style={{ flex: 1, minWidth: 420 }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Segmented options={FIXTURE_OPTIONS} value={fixture} onChange={setFixture} />
+          <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Segmented options={FIXTURE_OPTIONS} value={fixture} onChange={setFixture} />
+            <Tooltip title={printDisabledReason}>
+              <span>
+                <Button
+                  icon={<PrinterOutlined />}
+                  loading={testPrinting}
+                  disabled={!printerReady || testPrinting}
+                  onClick={handleTestPrint}
+                >
+                  Imprimir prueba
+                </Button>
+              </span>
+            </Tooltip>
+          </Space>
           <TicketCanvas elements={elements} stubEndCol={stubEndCol} />
         </Space>
       </div>

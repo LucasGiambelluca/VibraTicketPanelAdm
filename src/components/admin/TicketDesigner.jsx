@@ -237,26 +237,41 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     };
   }, []);
 
-  // Preview en vivo: cualquier cambio de config/fixture/logo/leyendas dispara
-  // un preview debounced 400ms contra el backend (única fuente de verdad FGL).
+  // Preview en vivo: cualquier cambio de config/fixture/logo/leyendas/eventId
+  // dispara un preview debounced 400ms contra el backend (única fuente de
+  // verdad FGL). Con eventId, el controller arma el fixture desde datos
+  // reales del evento (evento/venue/fecha/sector/precio; código/QR/emisión
+  // siguen siendo del fixture elegido — el selector de fixtures queda como
+  // override explícito, no se pisa). Si el evento no existe (404
+  // EventNotFound — puede pasar si se borró el evento mientras el panel
+  // estaba abierto) se avisa y se reintenta sin eventId para no dejar el
+  // preview en blanco.
   useEffect(() => {
     if (!cfg) return undefined;
     const timer = setTimeout(() => {
       const seq = ++previewSeq.current;
-      previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename)
-        .then(({ fgl }) => {
-          if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
-          const parsed = parseFgl(fgl);
-          setElements(parsed.elements);
-          setWarnings(parsed.warnings);
-        })
+      const applyPreview = ({ fgl }) => {
+        if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
+        const parsed = parseFgl(fgl);
+        setElements(parsed.elements);
+        setWarnings(parsed.warnings);
+      };
+      previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename, eventId)
+        .then(applyPreview)
         .catch((err) => {
           if (seq !== previewSeq.current) return;
+          if (eventId && err?.response?.data?.error === 'EventNotFound') {
+            message.warning('El evento no tiene datos para la vista previa: se muestran datos de ejemplo');
+            previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename)
+              .then(applyPreview)
+              .catch(() => {}); // ya se avisó arriba; sin más fallback razonable si esto también falla
+            return;
+          }
           message.error(apiErrorDetail(err) || 'No se pudo generar la vista previa');
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [cfg, fixture, logoFilename, leyendasOn, leyendasText]);
+  }, [cfg, fixture, logoFilename, leyendasOn, leyendasText, eventId]);
 
   // Merge inmutable sobre cfg.zonas[key], preservando el resto del config
   // sparse tal cual vino del backend (solo se escriben los campos tocados).
@@ -348,7 +363,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
       const { fgl } = await previewTemplate(
         buildPayload(cfg, leyendasOn, leyendasText),
         fixture,
-        logoFilename
+        logoFilename,
+        eventId
       );
       await agentPrint(fglToBase64(fgl));
       message.success('Ticket de prueba enviado a la impresora');

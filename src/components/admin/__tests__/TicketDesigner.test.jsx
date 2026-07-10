@@ -380,6 +380,43 @@ describe('TicketDesigner', () => {
     );
   });
 
+  it('con eventId el diseñador manda eventId en cada preview (fixture sigue viajando como override)', async () => {
+    render(<TicketDesigner eventId={7} />);
+    await waitFor(() => expect(ticketTemplateService.previewTemplate).toHaveBeenCalled());
+
+    const [config, fixtureArg, , eventIdArg] = vi
+      .mocked(ticketTemplateService.previewTemplate)
+      .mock.calls.at(-1);
+    expect(eventIdArg).toBe(7);
+    expect(fixtureArg).toBe('normal'); // selector de fixtures sigue viajando (override explícito)
+    expect(config.v).toBe(1);
+  });
+
+  it('sin eventId (plantilla global) no manda eventId en el preview', async () => {
+    render(<TicketDesigner />);
+    await waitFor(() => expect(ticketTemplateService.previewTemplate).toHaveBeenCalled());
+
+    const [, , , eventIdArg] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+    expect(eventIdArg).toBeNull();
+  });
+
+  it('un 404 EventNotFound cae a un preview de fixture puro (toast + reintento sin eventId)', async () => {
+    const warnSpy = vi.spyOn(message, 'warning').mockImplementation(() => {});
+    ticketTemplateService.previewTemplate.mockImplementation((config, fixture, logoFilename, eventId) => {
+      if (eventId) {
+        return Promise.reject({ response: { data: { error: 'EventNotFound' } } });
+      }
+      return Promise.resolve({ fgl: '<RC1,1><F1>FALLBACK-FIXTURE\n<p>' });
+    });
+
+    render(<TicketDesigner eventId={999} />);
+
+    await waitFor(() => expect(warnSpy).toHaveBeenCalled(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText('FALLBACK-FIXTURE')).toBeInTheDocument(), {
+      timeout: 3000,
+    });
+  });
+
   it('un preview con talon2 rotado (<RU>) renderiza sin explotar', async () => {
     ticketTemplateService.previewTemplate.mockResolvedValue({
       fgl:

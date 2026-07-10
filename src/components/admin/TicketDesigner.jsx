@@ -95,6 +95,51 @@ const buildPayload = (cfg, leyendasOn, leyendasText) => ({
 
 const apiErrorDetail = (err) => err?.response?.data?.detail;
 
+// Tamaño objetivo del logo antes de subirlo. El backend renderiza la zona
+// logo a maxW/maxH en dots (default 200x100, tope configurable 400x200 —
+// ver Joi de zona.logo y default en ApiTickets/services/fglLogo.js), así que
+// 600px de ancho ya deja holgura de sobra para cualquier config. El límite
+// del server es 1MB (routes/ticketTemplate.routes.js). El downscale es
+// best-effort: si el browser no soporta createImageBitmap (p.ej. jsdom en
+// los tests) devolvemos el archivo tal cual y el backend valida igual.
+const LOGO_MAX_WIDTH = 600;
+const LOGO_MAX_BYTES = 900 * 1024;
+
+async function maybeDownscaleLogo(file) {
+  if (!file) return file;
+  let needsDownscale = file.size > LOGO_MAX_BYTES;
+  let bitmap = null;
+  if (typeof createImageBitmap === 'function') {
+    try {
+      bitmap = await createImageBitmap(file);
+      if (bitmap.width > LOGO_MAX_WIDTH) needsDownscale = true;
+    } catch {
+      bitmap = null; // no se pudo decodificar; el backend valida el archivo original
+    }
+  }
+  if (!needsDownscale || !bitmap) {
+    bitmap?.close?.();
+    return file;
+  }
+  const scale = LOGO_MAX_WIDTH / bitmap.width;
+  const targetW = Math.max(1, Math.round(bitmap.width * scale));
+  const targetH = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    bitmap.close?.();
+    return file;
+  }
+  ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+  bitmap.close?.();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return file;
+  const baseName = file.name ? file.name.replace(/\.\w+$/, '') : 'logo';
+  return new File([blob], `${baseName}.png`, { type: 'image/png' });
+}
+
 export default function TicketDesigner({ eventId = null, onSaved }) {
   const [cfg, setCfg] = useState(null);
   const [logoFilename, setLogoFilename] = useState(null);
@@ -104,6 +149,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [warnings, setWarnings] = useState([]);
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadTick, setReloadTick] = useState(0);
   // Leyendas: el textarea guarda el string CRUDO (typing-friendly, sin
   // sanitizar) y un boolean separado dice si la personalización está activa.
   // La sanitización ocurre solo en buildPayload (frontera preview/save).
@@ -113,9 +160,10 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   // tocar el estado (una request lenta A no debe pisar a una más nueva B).
   const previewSeq = useRef(0);
 
-  // Carga inicial / al cambiar de evento.
+  // Carga inicial / al cambiar de evento / al reintentar tras un error.
   useEffect(() => {
     let cancelled = false;
+    setLoadError(null);
     getTemplate(eventId)
       .then(({ config, logoFilename: lf, source: src }) => {
         if (cancelled) return;
@@ -125,13 +173,14 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         setLeyendasOn(Array.isArray(config?.leyendas));
         setLeyendasText(config?.leyendas?.join('\n') ?? '');
       })
-      .catch(() => {
-        if (!cancelled) message.error('No se pudo cargar la plantilla');
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(apiErrorDetail(err) || 'No se pudo cargar la plantilla');
       });
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, reloadTick]);
 
   // Preview en vivo: cualquier cambio de config/fixture/logo/leyendas dispara
   // un preview debounced 400ms contra el backend (única fuente de verdad FGL).
@@ -204,14 +253,44 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
 
   const handleUploadLogo = async (file) => {
     try {
-      const res = await uploadLogo(eventId, file);
+      const toUpload = await maybeDownscaleLogo(file);
+      const res = await uploadLogo(eventId, toUpload);
       setLogoFilename(res?.logoFilename || null);
-      message.success('Logo subido');
+      // Si la zona logo estaba oculta, un logo recién subido no se vería en el
+      // ticket impreso hasta activarla a mano — la activamos de una vez y lo
+      // avisamos, para que "subir logo" no sea un no-op silencioso.
+      const zonaLogo = (cfg.zonas || {}).logo || {};
+      if (zonaLogo.visible === false) {
+        setZona('logo', { visible: true });
+        message.success('Logo subido — zona Logo activada en la plantilla');
+      } else {
+        message.success('Logo subido');
+      }
     } catch (err) {
-      message.error(apiErrorDetail(err) || 'No se pudo subir el logo');
+      const detail = apiErrorDetail(err);
+      if (detail === 'LIMIT_FILE_SIZE') {
+        message.error('La imagen supera 1 MB. Probá con una más liviana.');
+      } else {
+        message.error(detail || 'No se pudo subir el logo');
+      }
     }
     return false; // evita que antd intente subir el archivo por su cuenta
   };
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16, textAlign: 'left' }}
+          message="No se pudo cargar la plantilla"
+          description={loadError}
+        />
+        <Button onClick={() => setReloadTick((t) => t + 1)}>Reintentar</Button>
+      </div>
+    );
+  }
 
   if (!cfg) {
     return (

@@ -28,6 +28,17 @@ export const previewTemplate = (config, fixture, logoFilename, eventId) =>
     .post(`${base}/preview`, { config, fixture, logoFilename, ...(eventId ? { eventId } : {}) })
     .then(r => r.data);
 
+// Calibración física global de la impresora (Fase 5 del motor de cajas):
+// ticket de calibración (FGL para imprimir via el agente) + valores medidos.
+export const getCalibration = () =>
+  apiClient.get(`${base}/calibration`).then(r => r.data);
+
+export const saveCalibration = (calibration) =>
+  apiClient.put(`${base}/calibration`, calibration).then(r => r.data);
+
+export const getCalibrationTicket = () =>
+  apiClient.get(`${base}/calibration/ticket`).then(r => r.data);
+
 export const uploadLogo = (eventId, file) => {
   const fd = new FormData();
   fd.append('logo', file);

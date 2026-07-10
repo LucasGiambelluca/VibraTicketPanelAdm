@@ -22,6 +22,9 @@ vi.mock('../../../services/ticketTemplateService', () => ({
   previewTemplate: vi.fn().mockResolvedValue({ fgl: '<RC280,280><F3>$ 1,00\n<p>' }),
   saveTemplate: vi.fn().mockResolvedValue({ ok: true }),
   deleteTemplate: vi.fn(), uploadLogo: vi.fn(),
+  getCalibration: vi.fn().mockResolvedValue({ calibration: null }),
+  saveCalibration: vi.fn().mockResolvedValue({ ok: true, calibration: {} }),
+  getCalibrationTicket: vi.fn().mockResolvedValue({ fgl: '<RC5,5><p>' }),
 }));
 
 vi.mock('../../../services/printAgentService', () => ({

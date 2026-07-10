@@ -29,6 +29,9 @@ import {
   deleteTemplate,
   previewTemplate,
   uploadLogo,
+  getCalibration,
+  saveCalibration,
+  getCalibrationTicket,
 } from '../../services/ticketTemplateService';
 import { agentStatus, agentPrint } from '../../services/printAgentService';
 import { parseFgl, FONTS } from '../../utils/fglSimulator';
@@ -201,6 +204,13 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   // La sanitización ocurre solo en buildPayload (frontera preview/save).
   const [leyendasOn, setLeyendasOn] = useState(false);
   const [leyendasText, setLeyendasText] = useState('');
+  // Calibración física global (Fase 5): valores medidos del ticket de
+  // calibración. calVersion fuerza el refetch del preview tras guardar (la
+  // calibración se aplica server-side, no viaja en el config).
+  const [calInputs, setCalInputs] = useState({ perf1: null, perf2: null, f2w: null, f3w: null, f6w: null });
+  const [calSaving, setCalSaving] = useState(false);
+  const [calPrinting, setCalPrinting] = useState(false);
+  const [calVersion, setCalVersion] = useState(0);
   // Secuencia anti-stale: solo la respuesta del preview más reciente puede
   // tocar el estado (una request lenta A no debe pisar a una más nueva B).
   const previewSeq = useRef(0);
@@ -289,7 +299,64 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [cfg, fixture, logoFilename, leyendasOn, leyendasText, eventId]);
+  }, [cfg, fixture, logoFilename, leyendasOn, leyendasText, eventId, calVersion]);
+
+  // Carga inicial de la calibración física (global, no depende del evento).
+  useEffect(() => {
+    let cancelled = false;
+    getCalibration()
+      .then(({ calibration }) => {
+        if (cancelled || !calibration) return;
+        setCalInputs({
+          perf1: calibration.perf1 ?? null,
+          perf2: calibration.perf2 ?? null,
+          f2w: calibration.fonts?.F2?.w ?? null,
+          f3w: calibration.fonts?.F3?.w ?? null,
+          f6w: calibration.fonts?.F6?.w ?? null,
+        });
+      })
+      .catch(() => {}); // backend viejo sin endpoint: la sección sigue usable para imprimir
+    return () => { cancelled = true; };
+  }, []);
+
+  const handlePrintCalibration = async () => {
+    setCalPrinting(true);
+    try {
+      const { fgl } = await getCalibrationTicket();
+      await agentPrint(fglToBase64(fgl));
+      message.success('Ticket de calibración enviado a la impresora');
+    } catch (err) {
+      message.error(err?.message || apiErrorDetail(err) || 'No se pudo imprimir la calibración');
+    } finally {
+      setCalPrinting(false);
+    }
+  };
+
+  const handleSaveCalibration = async () => {
+    const fonts = {};
+    if (calInputs.f2w) fonts.F2 = { w: calInputs.f2w };
+    if (calInputs.f3w) fonts.F3 = { w: calInputs.f3w };
+    if (calInputs.f6w) fonts.F6 = { w: calInputs.f6w };
+    const payload = {
+      ...(calInputs.perf1 ? { perf1: calInputs.perf1 } : {}),
+      ...(calInputs.perf2 ? { perf2: calInputs.perf2 } : {}),
+      ...(Object.keys(fonts).length ? { fonts } : {}),
+    };
+    if (!Object.keys(payload).length) {
+      message.warning('Cargá al menos un valor medido antes de guardar');
+      return;
+    }
+    setCalSaving(true);
+    try {
+      await saveCalibration(payload);
+      message.success('Calibración guardada — el diseño se ajusta automáticamente');
+      setCalVersion((v) => v + 1); // refetch del preview con la calibración nueva
+    } catch (err) {
+      message.error(apiErrorDetail(err) || 'No se pudo guardar la calibración');
+    } finally {
+      setCalSaving(false);
+    }
+  };
 
   // Merge inmutable sobre cfg.zonas[key], preservando el resto del config
   // sparse tal cual vino del backend (solo se escriben los campos tocados).
@@ -588,6 +655,52 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         </div>
         <Text type="secondary" style={{ fontSize: 12 }}>
           Talón de control sin QR, impreso rotado 180° (verificar legibilidad con Imprimir prueba).
+        </Text>
+      </Space>
+    ),
+  });
+
+  // Calibración física global (Fase 5): imprimir la regla, medir, cargar acá.
+  // Se guarda una sola vez por impresora/cartón y aplica a TODOS los diseños.
+  panelItems.push({
+    key: 'calibracion',
+    label: 'Calibración impresora',
+    children: (
+      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Tooltip title={printDisabledReason}>
+          <span>
+            <Button
+              icon={<PrinterOutlined />}
+              loading={calPrinting}
+              disabled={!printerReady || calPrinting}
+              onClick={handlePrintCalibration}
+              block
+            >
+              Imprimir ticket de calibración
+            </Button>
+          </span>
+        </Tooltip>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Del ticket impreso: leé en la regla la columna donde cae cada
+          perforación, y medí el ancho de los 10 dígitos de cada fuente
+          (÷10 = dots por carácter; 1 mm ≈ 7,9 dots).
+        </Text>
+        <InputNumber addonBefore="Perforación 1" min={100} max={500} style={{ width: '100%' }}
+          value={calInputs.perf1} onChange={(v) => setCalInputs((p) => ({ ...p, perf1: v ?? null }))} />
+        <InputNumber addonBefore="Perforación 2" min={600} max={1100} style={{ width: '100%' }}
+          value={calInputs.perf2} onChange={(v) => setCalInputs((p) => ({ ...p, perf2: v ?? null }))} />
+        <InputNumber addonBefore="F2 dots/char" min={4} max={80} style={{ width: '100%' }}
+          value={calInputs.f2w} onChange={(v) => setCalInputs((p) => ({ ...p, f2w: v ?? null }))} />
+        <InputNumber addonBefore="F3 dots/char" min={4} max={80} style={{ width: '100%' }}
+          value={calInputs.f3w} onChange={(v) => setCalInputs((p) => ({ ...p, f3w: v ?? null }))} />
+        <InputNumber addonBefore="F6 dots/char" min={4} max={80} style={{ width: '100%' }}
+          value={calInputs.f6w} onChange={(v) => setCalInputs((p) => ({ ...p, f6w: v ?? null }))} />
+        <Button type="primary" loading={calSaving} onClick={handleSaveCalibration} block>
+          Guardar calibración
+        </Button>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Aplica globalmente (todos los diseños y la boletería). Un valor de
+          perforación explícito de esta plantilla sigue teniendo prioridad.
         </Text>
       </Space>
     ),

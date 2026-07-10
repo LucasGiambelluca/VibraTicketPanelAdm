@@ -11,6 +11,7 @@ pub fn run() {
         .manage(http::ApiState::new())
         .invoke_handler(tauri::generate_handler![
             http::api_fetch,
+            http::api_upload,
             printer::list_printers,
             printer::print_test,
             printer::print_ticket,

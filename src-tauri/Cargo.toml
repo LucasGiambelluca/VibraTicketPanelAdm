@@ -25,7 +25,7 @@ thiserror = "1"
 base64 = "0.22"
 # Cliente HTTP en el core: evita el CORS del webview y mantiene la cookie de
 # sesión (httpOnly) en un cookie jar nativo. default-tls = SChannel en Windows.
-reqwest = { version = "0.12", features = ["cookies", "gzip"] }
+reqwest = { version = "0.12", features = ["cookies", "gzip", "multipart"] }
 # Cross-platform printer listing + raw (RAW datatype on Windows, lp/CUPS on macOS/Linux)
 printers = "2.3"
 # OS-native secure storage: Credential Manager (Windows) / Keychain (macOS).

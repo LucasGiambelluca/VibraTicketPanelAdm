@@ -42,6 +42,12 @@ const DOTS_W = 1050;
 const DOTS_H = 384;
 const DEFAULT_STUB_END_COL = 250;
 
+// Talón derecho (segundo talón de control, sin QR, rotado 180° — feature
+// 2026-07-10). Default idéntico al del backend (ver
+// ApiTickets/services/fglTemplate.js:DEFAULT_CONFIG.talon2): visible:false
+// (retrocompatible), startCol:880 (Joi 100..1049 en el controller).
+const TALON2_START_COL_DEFAULT = 880;
+
 const FIXTURE_OPTIONS = [
   { label: 'Normal', value: 'normal' },
   { label: 'Invitación', value: 'invitacion' },
@@ -98,7 +104,10 @@ const cleanLeyendas = (text) =>
 
 // Config listo para el backend: v garantizado + leyendas derivadas del estado
 // del textarea (ON → array limpio, incluso [] = "forzar ninguna"; OFF → null
-// = usar los datos del evento). Las zonas sparse van tal cual.
+// = usar los datos del evento). Las zonas sparse van tal cual. `talon2` (como
+// `stubEndCol`) es una clave de nivel superior de cfg, NO vive dentro de
+// `zonas` — el spread de `withV(cfg)` ya la incluye tal cual la dejó
+// setTalon2, sin necesidad de tratamiento especial acá.
 const buildPayload = (cfg, leyendasOn, leyendasText) => ({
   ...withV(cfg),
   leyendas: leyendasOn ? cleanLeyendas(leyendasText) : null,
@@ -263,6 +272,15 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
 
   const setStubEndCol = (value) => {
     setCfg((prev) => ({ ...prev, stubEndCol: value }));
+  };
+
+  // Merge inmutable sobre cfg.talon2 (patrón de setStubEndCol: clave de nivel
+  // superior, no una zona) preservando el campo no tocado (visible/startCol).
+  const setTalon2 = (patch) => {
+    setCfg((prev) => ({
+      ...prev,
+      talon2: { ...(prev.talon2 || {}), ...patch },
+    }));
   };
 
   const handleSave = async () => {
@@ -483,6 +501,48 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     };
   });
 
+  // Talón derecho (segundo talón de control, sin QR, rotado 180° — feature
+  // 2026-07-10): no es una "zona" (no tiene row/col/size individuales, el
+  // layout interno de sus 6 campos es fijo en el backend), por eso vive
+  // aparte de ZONES/panelItems.map en lugar de sumarse a la lista de zonas.
+  // `talon2` es una clave de nivel superior de cfg (como stubEndCol), no una
+  // entrada de cfg.zonas.
+  const talon2 = cfg.talon2 || {};
+  const talon2Visible = talon2.visible === true; // default false, retrocompatible
+  const talon2StartCol = talon2.startCol ?? TALON2_START_COL_DEFAULT;
+  panelItems.push({
+    key: 'talon2',
+    label: 'Talón derecho',
+    extra: (
+      <span onClick={(e) => e.stopPropagation()}>
+        <Switch
+          size="small"
+          checked={talon2Visible}
+          onClick={(next, e) => e.stopPropagation()}
+          onChange={(checked) => setTalon2({ visible: checked })}
+        />
+      </span>
+    ),
+    children: (
+      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Columna de inicio: {talon2StartCol}
+          </Text>
+          <Slider
+            min={100}
+            max={1049}
+            value={talon2StartCol}
+            onChange={(v) => setTalon2({ startCol: v })}
+          />
+        </div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Talón de control sin QR, impreso rotado 180° (verificar legibilidad con Imprimir prueba).
+        </Text>
+      </Space>
+    ),
+  });
+
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <div style={{ width: 340, flex: '0 0 340px', maxHeight: '80vh', overflowY: 'auto', paddingRight: 4 }}>
@@ -619,24 +679,38 @@ function TicketElement({ el }) {
       const hw = el.hw || [1, 1];
       const fontSize = charH * hw[0];
       const letterSpacing = boxW * hw[1] - 0.6 * fontSize;
-      return (
-        <div
-          style={{
-            position: 'absolute',
-            top: el.row,
-            left: el.col,
-            fontFamily: '"Courier New", Courier, monospace',
-            fontWeight: 600,
-            whiteSpace: 'pre',
-            fontSize,
-            lineHeight: `${fontSize}px`,
-            letterSpacing,
-            color: '#191919',
-          }}
-        >
-          {el.text}
-        </div>
-      );
+      const style = {
+        position: 'absolute',
+        fontFamily: '"Courier New", Courier, monospace',
+        fontWeight: 600,
+        whiteSpace: 'pre',
+        fontSize,
+        lineHeight: `${fontSize}px`,
+        letterSpacing,
+        color: '#191919',
+      };
+      if (el.rotation === 180) {
+        // Talón derecho (<RU>, fglSimulator.js): (el.row, el.col) es el punto
+        // de anclaje del comando FGL, que para RU es el extremo DERECHO/ABAJO
+        // de la corrida en el sistema de coordenadas SIN rotar (el texto
+        // "construye hacia arriba", cheatsheet §4) — o sea, la esquina
+        // inferior-derecha de la caja, no la superior-izquierda como en NR.
+        // Rotar 180° alrededor del centro de esa caja no mueve su bounding
+        // box (sigue ocupando el mismo rectángulo), solo voltea el contenido:
+        // exactamente el efecto visual de imprimir con <RU>, sin necesitar
+        // fidelidad física perfecta (alcanza con mostrar el talón girado en
+        // el lugar correcto).
+        const width = el.text.length * boxW * hw[1];
+        style.top = el.row - fontSize;
+        style.left = el.col - width;
+        style.width = width;
+        style.transform = 'rotate(180deg)';
+        style.transformOrigin = 'center';
+      } else {
+        style.top = el.row;
+        style.left = el.col;
+      }
+      return <div style={style}>{el.text}</div>;
     }
     case 'line': {
       const size = el.vertical

@@ -46,17 +46,27 @@ export function parseFgl(fgl) {
   let hw = [1, 1]; // [h, w] — multiplicadores de escala, persisten hasta que cambian
   let lt = 1; // grosor de línea: solo aplica al próximo VX/HX/BX, luego vuelve a 1
   let qrModules = DEFAULT_QR_MODULES; // vuelve al default después de cada QR
+  // Rotación vigente (cheatsheet §4): 0 = <NR> (default, izquierda→derecha),
+  // 180 = <RU>. Solo estos dos estados se simulan (talón derecho, feature
+  // 2026-07-10); <RR>/<RL> siguen sin simular (avisan y no se usan hoy).
+  let rotation = 0;
 
   // Vuelca un tramo de texto plano como elemento 'text' (si no queda vacío
   // tras sacarle los saltos de línea, que son separadores, no contenido) y
-  // avanza el cursor de columna para que el próximo texto sin RC explícito
-  // quede pegado a continuación.
+  // avanza el cursor para que el próximo texto sin RC explícito quede pegado
+  // a continuación. Con <NR> el texto corre izquierda→derecha (col avanza);
+  // con <RU> corre derecha→izquierda "construye hacia arriba" (cheatsheet
+  // §4): el punto (row,col) es el extremo DERECHO de la corrida y el cursor
+  // retrocede para la próxima (mismo patrón que NR, eje invertido).
   const flushText = (raw) => {
     const text = raw.replace(/\r?\n/g, '');
     if (!text) return;
     const [boxWidth] = FONTS[font] || FONTS.F1;
-    elements.push({ type: 'text', row, col, font, text, hw: [...hw] });
-    col += text.length * boxWidth * hw[1];
+    const width = text.length * boxWidth * hw[1];
+    const el = { type: 'text', row, col, font, text, hw: [...hw] };
+    if (rotation === 180) el.rotation = 180;
+    elements.push(el);
+    col += rotation === 180 ? -width : width;
   };
 
   let i = 0;
@@ -161,13 +171,22 @@ export function parseFgl(fgl) {
         continue;
       }
 
-      // No-ops: <NR> rotación base, <p>/<q> fin
+      // <NR> — rotación base (sin rotar); <p>/<q> — fin de ticket, no-ops.
       if (cmd === 'NR' || cmd === 'p' || cmd === 'q') {
+        rotation = 0;
         continue;
       }
 
-      // Rotaciones: no simuladas, solo se avisa
-      if (cmd === 'RR' || cmd === 'RU' || cmd === 'RL') {
+      // <RU> — rotación +180° (talón derecho, cheatsheet §4): simulada
+      // marcando `rotation: 180` en los elementos de texto que siguen (ver
+      // flushText); el resto de comandos (RC/F#/HW) funciona igual.
+      if (cmd === 'RU') {
+        rotation = 180;
+        continue;
+      }
+
+      // <RR>/<RL> (+90°/+270°): no simuladas, solo se avisa.
+      if (cmd === 'RR' || cmd === 'RL') {
         warnings.push(`Rotación ${cmd} no simulada`);
         continue;
       }

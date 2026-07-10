@@ -345,6 +345,55 @@ describe('TicketDesigner', () => {
     );
   });
 
+  it('activar "Talón derecho" y mover su slider viajan como talon2.visible/startCol en el próximo preview', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Talón derecho')).toBeInTheDocument());
+
+    const header = screen.getByText('Talón derecho').closest('.ant-collapse-header');
+    await user.click(within(header).getByRole('switch'));
+
+    await waitFor(
+      () => {
+        const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+        expect(config.talon2.visible).toBe(true);
+      },
+      { timeout: 3000 }
+    );
+
+    // Expandir el panel (Collapse no monta los children hasta abrir) para
+    // llegar al slider "Columna de inicio".
+    await user.click(screen.getByText('Talón derecho'));
+    const panel = screen.getByText('Talón derecho').closest('.ant-collapse-item');
+    const slider = within(panel).getByRole('slider');
+    expect(slider).toHaveAttribute('aria-valuenow', '880'); // default (Joi 100..1049)
+
+    slider.focus();
+    fireEvent.keyDown(slider, { key: 'ArrowRight', keyCode: 39, which: 39 });
+
+    await waitFor(
+      () => {
+        const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+        expect(config.talon2).toEqual({ visible: true, startCol: 881 });
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  it('un preview con talon2 rotado (<RU>) renderiza sin explotar', async () => {
+    ticketTemplateService.previewTemplate.mockResolvedValue({
+      fgl:
+        '<NR>\n<RC280,280><F3>$ 25.000,00\n<RU>\n<RC350,1040><F2>RS FEST 2\n' +
+        '<RC300,1040><F1>SABADO 21 MARZO 16:...\n<NR>\n<p>\n',
+    });
+
+    render(<TicketDesigner />);
+
+    await waitFor(() => expect(screen.getByText('RS FEST 2')).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByText('SABADO 21 MARZO 16:...')).toBeInTheDocument();
+    expect(screen.getByText('$ 25.000,00')).toBeInTheDocument();
+  });
+
   it('las zonas codigo/emision/leyendas/pie no tienen control de tamaño (F1 fijo, sin escalera)', async () => {
     const user = userEvent.setup();
     render(<TicketDesigner />);

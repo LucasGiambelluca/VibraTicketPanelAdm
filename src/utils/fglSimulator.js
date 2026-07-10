@@ -8,13 +8,16 @@
 // componente React los renderice sobre un lienzo, más una lista de avisos
 // para comandos que no se simulan (rotaciones, comandos desconocidos, etc).
 
-// Métricas de fuentes en dots de impresora: [boxWidth, charHeight]
+// Métricas de fuentes en dots de impresora: [boxWidth, charHeight].
+// F1/F2/F3/F6 sincronizadas con FONT_METRICS del motor de cajas
+// (ApiTickets/services/ticketLayout.js) — si la calibración física (Fase 5)
+// corrige aquellas, corregir estas igual para que el preview no mienta.
 export const FONTS = {
-  F1: [7, 7],
-  F2: [10, 16],
+  F1: [8, 9],
+  F2: [12, 15],
   F3: [20, 31],
   F4: [7, 9],
-  F6: [33, 52],
+  F6: [34, 48],
   F7: [18, 29],
   F8: [22, 40],
   F9: [15, 20],

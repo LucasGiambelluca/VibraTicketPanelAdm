@@ -366,7 +366,7 @@ describe('TicketDesigner', () => {
     await user.click(screen.getByText('Talón derecho'));
     const panel = screen.getByText('Talón derecho').closest('.ant-collapse-item');
     const slider = within(panel).getByRole('slider');
-    expect(slider).toHaveAttribute('aria-valuenow', '835'); // default PERF_2 (Joi 100..1112)
+    expect(slider).toHaveAttribute('aria-valuenow', '828'); // default PERF_2 (Joi 100..1112)
 
     slider.focus();
     fireEvent.keyDown(slider, { key: 'ArrowRight', keyCode: 39, which: 39 });
@@ -374,7 +374,7 @@ describe('TicketDesigner', () => {
     await waitFor(
       () => {
         const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
-        expect(config.talon2).toEqual({ visible: true, startCol: 836 });
+        expect(config.talon2).toEqual({ visible: true, startCol: 829 });
       },
       { timeout: 3000 }
     );
@@ -436,7 +436,7 @@ describe('TicketDesigner', () => {
     render(<TicketDesigner />);
     await waitFor(() => expect(screen.getByText('Precio')).toBeInTheDocument());
 
-    for (const label of ['Código talón', 'Fecha emisión talón', 'Leyendas', 'Pie legal']) {
+    for (const label of ['Código talón', 'Fecha emisión talón', 'Leyendas', 'Tipo de entrada']) {
       await user.click(screen.getByText(label));
     }
 

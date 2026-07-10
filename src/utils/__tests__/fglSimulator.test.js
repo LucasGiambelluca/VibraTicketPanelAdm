@@ -125,7 +125,7 @@ describe('fglSimulator', () => {
     const { elements } = parseFgl('<RU><RC0,100><F1>AB<F1>CD');
     expect(elements).toHaveLength(2);
     expect(elements[0]).toMatchObject({ row: 0, col: 100, text: 'AB', rotation: 180 });
-    // retroceso = text.length(2) * boxWidth F1(7) * w(1) = 14
-    expect(elements[1]).toMatchObject({ row: 0, col: 86, text: 'CD', rotation: 180 });
+    // retroceso = text.length(2) * boxWidth F1(8) * w(1) = 16
+    expect(elements[1]).toMatchObject({ row: 0, col: 84, text: 'CD', rotation: 180 });
   });
 });

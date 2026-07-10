@@ -43,12 +43,10 @@ const DOTS_W = 1113;
 const DOTS_H = 390;
 const DEFAULT_STUB_END_COL = 280;
 
-// Talón derecho (segundo talón de control, sin QR, rotado 180° — layout
-// TuEntrada). Default idéntico al del backend (ver
-// ApiTickets/services/fglTemplate.js:DEFAULT_CONFIG.talon2): visible:false
-// (retrocompatible), startCol:835 = PERF_2 nominal (Joi 100..1112 en el
-// controller).
-const TALON2_START_COL_DEFAULT = 835;
+// Talón derecho (talón de control, sin QR, rotado 180°). Default idéntico al
+// del backend (fglConstants.js TALON2_START_COL): visible:false
+// (retrocompatible), startCol:828 = PERF_2 nominal [CAL] (Joi 100..1112).
+const TALON2_START_COL_DEFAULT = 828;
 
 const FIXTURE_OPTIONS = [
   { label: 'Normal', value: 'normal' },
@@ -69,17 +67,19 @@ const SIZE_OPTIONS = [
 // `size` explícito (services/fglTemplate.js:DEFAULT_CONFIG.zonas, verificado
 // ahí mismo — no en este archivo). codigo/emision/leyendas/pie siempre
 // imprimen en F1 fijo (sin escalera de tamaño), por eso no llevan control.
+// hasSize solo donde el motor de cajas tiene escalera con preset G/M/C
+// (ticketLayout.js LADDERS): evento, venue, fecha, precio. El resto imprime
+// con fuente fija de su caja (F2 mínimo — F1 prohibida como texto de lectura).
 const ZONES = [
   { key: 'evento', label: 'Nombre del evento', hasSize: true, hasCol: false, sizeDefault: 'G' },
   { key: 'venue', label: 'Venue', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'direccion', label: 'Dirección', hasSize: true, hasCol: false, sizeDefault: 'M' },
+  { key: 'direccion', label: 'Dirección', hasSize: false, hasCol: false },
   { key: 'fecha', label: 'Fecha y hora', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'sector', label: 'Sector / entrada', hasSize: true, hasCol: false, sizeDefault: 'M' },
-  { key: 'tipo', label: 'Tipo de entrada', hasSize: true, hasCol: false, sizeDefault: 'M' },
+  { key: 'sector', label: 'Sector / entrada', hasSize: false, hasCol: false },
+  { key: 'tipo', label: 'Tipo de entrada', hasSize: false, hasCol: false },
   { key: 'precio', label: 'Precio', hasSize: true, hasCol: false, sizeDefault: 'M' },
-  { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: true },
-  { key: 'pie', label: 'Pie legal', hasSize: false, hasCol: false },
-  { key: 'marca', label: 'Marca talón', hasSize: true, hasCol: true, sizeDefault: 'M' },
+  { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: false },
+  { key: 'marca', label: 'Marca talón', hasSize: false, hasCol: true },
   { key: 'codigo', label: 'Código talón', hasSize: false, hasCol: true },
   { key: 'emision', label: 'Fecha emisión talón', hasSize: false, hasCol: true },
   { key: 'logo', label: 'Logo', hasSize: false, hasCol: true },
@@ -187,6 +187,9 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [fixture, setFixture] = useState('normal');
   const [elements, setElements] = useState([]);
   const [warnings, setWarnings] = useState([]);
+  // Errores del verificador de layout (solapes / cruces de perforación):
+  // bloquean Guardar e Imprimir prueba (regla 5 del motor de cajas).
+  const [layoutErrors, setLayoutErrors] = useState([]);
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -255,11 +258,21 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     if (!cfg) return undefined;
     const timer = setTimeout(() => {
       const seq = ++previewSeq.current;
-      const applyPreview = ({ fgl }) => {
+      const applyPreview = ({ fgl, elements: els, warnings: warns, errors }) => {
         if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
-        const parsed = parseFgl(fgl);
-        setElements(parsed.elements);
-        setWarnings(parsed.warnings);
+        if (Array.isArray(els)) {
+          // Backend nuevo: elementos resueltos por el motor de cajas (misma
+          // fuente de verdad que la impresión — el panel solo dibuja).
+          setElements(els);
+          setWarnings(warns || []);
+          setLayoutErrors(errors || []);
+        } else {
+          // Compat backend viejo: parsear el FGL con el simulador.
+          const parsed = parseFgl(fgl);
+          setElements(parsed.elements);
+          setWarnings(parsed.warnings);
+          setLayoutErrors([]);
+        }
       };
       previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename, eventId)
         .then(applyPreview)
@@ -304,7 +317,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   };
 
   const handleSave = async () => {
-    if (!cfg) return;
+    if (!cfg || layoutErrors.length) return;
     setSaving(true);
     try {
       await saveTemplate(eventId, buildPayload(cfg, leyendasOn, leyendasText));
@@ -362,7 +375,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   };
 
   const handleTestPrint = async () => {
-    if (!cfg) return;
+    if (!cfg || layoutErrors.length) return;
     setTestPrinting(true);
     try {
       const { fgl } = await previewTemplate(
@@ -371,6 +384,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         logoFilename,
         eventId
       );
+      if (!fgl) throw new Error('El layout tiene errores: corregilos antes de imprimir');
       await agentPrint(fglToBase64(fgl));
       message.success('Ticket de prueba enviado a la impresora');
     } catch (err) {
@@ -414,13 +428,28 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     ? 'Impresora inaccesible'
     : '';
 
+  // Zona con error del verificador => label en rojo con el motivo (los
+  // errores nombran al elemento: "fecha: ...", 'solape: "fecha" pisa ...').
+  const ERROR_ALIASES = { leyendas: ['leyendas', 'restriccion'], codigo: ['codigo', 'serialA'], emision: ['emision', 'serialA'] };
+  const zoneErrors = (key) => {
+    const names = ERROR_ALIASES[key] || [key];
+    return layoutErrors.filter((e) => names.some((n) => e.includes(`"${n}"`) || e.startsWith(`${n}:`)));
+  };
+
   const panelItems = ZONES.map((zone) => {
     const zona = (cfg.zonas || {})[zone.key] || {};
     const visible = zona.visible !== false;
+    const errs = zoneErrors(zone.key);
 
     return {
       key: zone.key,
-      label: zone.label,
+      label: errs.length
+        ? (
+          <Tooltip title={errs.join(' — ')}>
+            <span style={{ color: '#E4574B', fontWeight: 600 }}>{zone.label} ⚠</span>
+          </Tooltip>
+        )
+        : zone.label,
       extra: (
         // stopPropagation en ambos handlers: el click en el Switch no debe
         // abrir/cerrar el panel del Collapse.
@@ -575,14 +604,21 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
 
           <Collapse items={panelItems} />
 
+          {layoutErrors.map((e, idx) => (
+            <Alert key={`err-${e}-${idx}`} type="error" showIcon message={e} />
+          ))}
           {warnings.map((w, idx) => (
             <Alert key={`${w}-${idx}`} type="warning" showIcon message={w} />
           ))}
 
           <Space wrap>
-            <Button type="primary" loading={saving} onClick={handleSave}>
-              Guardar
-            </Button>
+            <Tooltip title={layoutErrors.length ? 'Corregí los errores de layout antes de guardar' : ''}>
+              <span>
+                <Button type="primary" loading={saving} disabled={layoutErrors.length > 0} onClick={handleSave}>
+                  Guardar
+                </Button>
+              </span>
+            </Tooltip>
             {eventId && source === 'event' && (
               <Button loading={reverting} onClick={handleRevert}>
                 Usar plantilla global
@@ -596,12 +632,12 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
             <Segmented options={FIXTURE_OPTIONS} value={fixture} onChange={setFixture} />
-            <Tooltip title={printDisabledReason}>
+            <Tooltip title={layoutErrors.length ? 'El layout tiene errores: impresión bloqueada' : printDisabledReason}>
               <span>
                 <Button
                   icon={<PrinterOutlined />}
                   loading={testPrinting}
-                  disabled={!printerReady || testPrinting}
+                  disabled={!printerReady || testPrinting || layoutErrors.length > 0}
                   onClick={handleTestPrint}
                 >
                   Imprimir prueba

@@ -25,8 +25,10 @@ jobs:
             args: ''
           - platform: macos-latest          # Apple Silicon
             args: '--target aarch64-apple-darwin'
-          - platform: macos-13              # Intel
-            args: '--target x86_64-apple-darwin'
+          # macos-13 (Intel) eliminado: GitHub retiró esos runners y el job
+          # quedaba "queued" para siempre, colgando el run 24h hasta el
+          # timeout (visto en v0.1.1–v0.1.5). Si hace falta un build Intel,
+          # compilar en una Mac local con --target x86_64-apple-darwin.
 
     runs-on: ${{ matrix.platform }}
 

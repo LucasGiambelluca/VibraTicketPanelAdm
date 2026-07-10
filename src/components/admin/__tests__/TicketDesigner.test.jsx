@@ -114,11 +114,11 @@ describe('TicketDesigner', () => {
     });
 
     render(<TicketDesigner />);
-    await waitFor(() => expect(screen.getByText('Venue y dirección')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Venue')).toBeInTheDocument());
 
     // Apagar SOLO la zona venue desde el switch del header de su panel.
     const venueHeader = screen
-      .getByText('Venue y dirección')
+      .getByText('Venue')
       .closest('.ant-collapse-header');
     await user.click(within(venueHeader).getByRole('switch'));
 
@@ -366,7 +366,7 @@ describe('TicketDesigner', () => {
     await user.click(screen.getByText('Talón derecho'));
     const panel = screen.getByText('Talón derecho').closest('.ant-collapse-item');
     const slider = within(panel).getByRole('slider');
-    expect(slider).toHaveAttribute('aria-valuenow', '880'); // default (Joi 100..1049)
+    expect(slider).toHaveAttribute('aria-valuenow', '835'); // default PERF_2 (Joi 100..1112)
 
     slider.focus();
     fireEvent.keyDown(slider, { key: 'ArrowRight', keyCode: 39, which: 39 });
@@ -374,7 +374,7 @@ describe('TicketDesigner', () => {
     await waitFor(
       () => {
         const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
-        expect(config.talon2).toEqual({ visible: true, startCol: 881 });
+        expect(config.talon2).toEqual({ visible: true, startCol: 836 });
       },
       { timeout: 3000 }
     );

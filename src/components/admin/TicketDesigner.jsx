@@ -36,17 +36,19 @@ import { parseFgl, FONTS } from '../../utils/fglSimulator';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-// Dimensiones del ticket en dots de impresora (ver services/fglConstants.js
-// en el backend: WIDTH_DOTS=384 alto, LENGTH_DOTS=1050 ancho).
-const DOTS_W = 1050;
-const DOTS_H = 384;
-const DEFAULT_STUB_END_COL = 250;
+// Dimensiones físicas calibradas con test ticket (mapeo TuEntrada 2026-07-10):
+// PRINT LENGTH 1113 dots, área segura de filas 0–390. Deben coincidir con
+// STOCK en ApiTickets/services/fglConstants.js.
+const DOTS_W = 1113;
+const DOTS_H = 390;
+const DEFAULT_STUB_END_COL = 280;
 
-// Talón derecho (segundo talón de control, sin QR, rotado 180° — feature
-// 2026-07-10). Default idéntico al del backend (ver
+// Talón derecho (segundo talón de control, sin QR, rotado 180° — layout
+// TuEntrada). Default idéntico al del backend (ver
 // ApiTickets/services/fglTemplate.js:DEFAULT_CONFIG.talon2): visible:false
-// (retrocompatible), startCol:880 (Joi 100..1049 en el controller).
-const TALON2_START_COL_DEFAULT = 880;
+// (retrocompatible), startCol:835 = PERF_2 nominal (Joi 100..1112 en el
+// controller).
+const TALON2_START_COL_DEFAULT = 835;
 
 const FIXTURE_OPTIONS = [
   { label: 'Normal', value: 'normal' },
@@ -69,12 +71,15 @@ const SIZE_OPTIONS = [
 // imprimen en F1 fijo (sin escalera de tamaño), por eso no llevan control.
 const ZONES = [
   { key: 'evento', label: 'Nombre del evento', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'venue', label: 'Venue y dirección', hasSize: true, hasCol: false, sizeDefault: 'M' },
+  { key: 'venue', label: 'Venue', hasSize: true, hasCol: false, sizeDefault: 'G' },
+  { key: 'direccion', label: 'Dirección', hasSize: true, hasCol: false, sizeDefault: 'M' },
   { key: 'fecha', label: 'Fecha y hora', hasSize: true, hasCol: false, sizeDefault: 'G' },
   { key: 'sector', label: 'Sector / entrada', hasSize: true, hasCol: false, sizeDefault: 'M' },
+  { key: 'tipo', label: 'Tipo de entrada', hasSize: true, hasCol: false, sizeDefault: 'M' },
   { key: 'precio', label: 'Precio', hasSize: true, hasCol: false, sizeDefault: 'M' },
   { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: true },
   { key: 'pie', label: 'Pie legal', hasSize: false, hasCol: false },
+  { key: 'marca', label: 'Marca talón', hasSize: true, hasCol: true, sizeDefault: 'M' },
   { key: 'codigo', label: 'Código talón', hasSize: false, hasCol: true },
   { key: 'emision', label: 'Fecha emisión talón', hasSize: false, hasCol: true },
   { key: 'logo', label: 'Logo', hasSize: false, hasCol: true },
@@ -433,7 +438,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           <InputNumber
             addonBefore="Fila"
             min={0}
-            max={383}
+            max={389}
             style={{ width: '100%' }}
             value={zona.row}
             onChange={(v) => setZona(zone.key, { row: v ?? undefined })}
@@ -442,7 +447,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
             <InputNumber
               addonBefore="Columna"
               min={0}
-              max={1049}
+              max={1112}
               style={{ width: '100%' }}
               value={zona.col}
               onChange={(v) => setZona(zone.key, { col: v ?? undefined })}
@@ -547,7 +552,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           </Text>
           <Slider
             min={100}
-            max={1049}
+            max={1112}
             value={talon2StartCol}
             onChange={(v) => setTalon2({ startCol: v })}
           />
@@ -604,7 +609,11 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
               </span>
             </Tooltip>
           </Space>
-          <TicketCanvas elements={elements} stubEndCol={stubEndCol} />
+          <TicketCanvas
+            elements={elements}
+            stubEndCol={stubEndCol}
+            talon2StartCol={talon2Visible ? talon2StartCol : null}
+          />
         </Space>
       </div>
     </div>
@@ -616,7 +625,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
 // 1050x384 "dots" (1 dot = 1px) escalado con transform para caber en el
 // ancho disponible. Puramente presentacional, sin llamadas a la API.
 // ---------------------------------------------------------------------------
-function TicketCanvas({ elements, stubEndCol }) {
+function TicketCanvas({ elements, stubEndCol, talon2StartCol }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(0);
 
@@ -670,6 +679,20 @@ function TicketCanvas({ elements, stubEndCol }) {
               pointerEvents: 'none',
             }}
           />
+          {/* Línea de perforación 2 (talón de control derecho, si está activo) */}
+          {Number.isFinite(talon2StartCol) && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: talon2StartCol,
+                width: 0,
+                height: DOTS_H,
+                borderLeft: '2px dashed #E4574B',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
           {/* Tinte del área del talón */}
           <div
             style={{
@@ -722,6 +745,16 @@ function TicketElement({ el }) {
         style.width = width;
         style.transform = 'rotate(180deg)';
         style.transformOrigin = 'center';
+      } else if (el.rotation === 90 || el.rotation === 270) {
+        // <RR> (90°: texto corre hacia abajo) / <RL> (270°: hacia arriba,
+        // emisión vertical del talón). Se dibuja la corrida horizontal y se
+        // rota alrededor del punto de anclaje (top-left = el <RC> del FGL):
+        // con -90° el texto queda extendiéndose hacia arriba desde el
+        // anclaje, con +90° hacia abajo — misma geometría que la impresora.
+        style.top = el.row;
+        style.left = el.col;
+        style.transform = el.rotation === 90 ? 'rotate(90deg)' : 'rotate(-90deg)';
+        style.transformOrigin = '0 0';
       } else {
         style.top = el.row;
         style.left = el.col;

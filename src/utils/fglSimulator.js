@@ -47,26 +47,30 @@ export function parseFgl(fgl) {
   let lt = 1; // grosor de línea: solo aplica al próximo VX/HX/BX, luego vuelve a 1
   let qrModules = DEFAULT_QR_MODULES; // vuelve al default después de cada QR
   // Rotación vigente (cheatsheet §4): 0 = <NR> (default, izquierda→derecha),
-  // 180 = <RU>. Solo estos dos estados se simulan (talón derecho, feature
-  // 2026-07-10); <RR>/<RL> siguen sin simular (avisan y no se usan hoy).
+  // 180 = <RU> (talón derecho), 90 = <RR> (texto corre hacia abajo), 270 =
+  // <RL> (texto corre hacia arriba — emisión vertical del talón, layout
+  // TuEntrada 2026-07-10).
   let rotation = 0;
 
   // Vuelca un tramo de texto plano como elemento 'text' (si no queda vacío
   // tras sacarle los saltos de línea, que son separadores, no contenido) y
   // avanza el cursor para que el próximo texto sin RC explícito quede pegado
   // a continuación. Con <NR> el texto corre izquierda→derecha (col avanza);
-  // con <RU> corre derecha→izquierda "construye hacia arriba" (cheatsheet
-  // §4): el punto (row,col) es el extremo DERECHO de la corrida y el cursor
-  // retrocede para la próxima (mismo patrón que NR, eje invertido).
+  // con <RU> corre derecha→izquierda; con <RR>/<RL> corre a lo alto del
+  // ticket (row avanza/retrocede). El punto (row,col) es siempre el INICIO
+  // de la corrida en la dirección de avance (cheatsheet §4).
   const flushText = (raw) => {
     const text = raw.replace(/\r?\n/g, '');
     if (!text) return;
     const [boxWidth] = FONTS[font] || FONTS.F1;
     const width = text.length * boxWidth * hw[1];
     const el = { type: 'text', row, col, font, text, hw: [...hw] };
-    if (rotation === 180) el.rotation = 180;
+    if (rotation !== 0) el.rotation = rotation;
     elements.push(el);
-    col += rotation === 180 ? -width : width;
+    if (rotation === 180) col -= width;
+    else if (rotation === 90) row += width;
+    else if (rotation === 270) row -= width;
+    else col += width;
   };
 
   let i = 0;
@@ -185,9 +189,14 @@ export function parseFgl(fgl) {
         continue;
       }
 
-      // <RR>/<RL> (+90°/+270°): no simuladas, solo se avisa.
-      if (cmd === 'RR' || cmd === 'RL') {
-        warnings.push(`Rotación ${cmd} no simulada`);
+      // <RR> (+90°, texto hacia abajo) / <RL> (-90°, texto hacia arriba):
+      // simuladas marcando rotation en los elementos de texto (ver flushText).
+      if (cmd === 'RR') {
+        rotation = 90;
+        continue;
+      }
+      if (cmd === 'RL') {
+        rotation = 270;
         continue;
       }
 

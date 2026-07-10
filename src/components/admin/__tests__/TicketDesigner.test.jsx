@@ -230,7 +230,7 @@ describe('TicketDesigner', () => {
     expect(eventIdArg).toBeNull();
     expect(uploadedFile.name).toBe('logo.png');
 
-    expect(successSpy).toHaveBeenCalledWith('Logo subido — zona Logo activada en la plantilla');
+    expect(successSpy).toHaveBeenCalledWith('Logo subido y centrado — movelo desde la zona Logo si hace falta');
 
     // El próximo preview lleva el logoFilename nuevo Y la zona logo visible.
     await waitFor(

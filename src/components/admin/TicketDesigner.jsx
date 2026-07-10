@@ -423,13 +423,12 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
       // Si la zona logo estaba oculta, un logo recién subido no se vería en el
       // ticket impreso hasta activarla a mano — la activamos de una vez y lo
       // avisamos, para que "subir logo" no sea un no-op silencioso.
-      const zonaLogo = (cfg.zonas || {}).logo || {};
-      if (zonaLogo.visible === false) {
-        setZona('logo', { visible: true });
-        message.success('Logo subido — zona Logo activada en la plantilla');
-      } else {
-        message.success('Logo subido');
-      }
+      // El logo recién subido SIEMPRE arranca centrado en el cuerpo (fila 140,
+      // col 455 = centro del cuerpo con la caja default de 200x100): pisa
+      // cualquier posición vieja guardada — "el logo se carga en cualquier
+      // lado" (bug 2026-07-10). Desde ahí el operador lo mueve si quiere.
+      setZona('logo', { visible: true, row: 140, col: 455 });
+      message.success('Logo subido y centrado — movelo desde la zona Logo si hace falta');
     } catch (err) {
       const detail = apiErrorDetail(err);
       if (detail === 'LIMIT_FILE_SIZE') {

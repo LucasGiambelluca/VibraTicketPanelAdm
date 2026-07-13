@@ -39,11 +39,11 @@ import { parseFgl, FONTS } from '../../utils/fglSimulator';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-// Dimensiones físicas calibradas con test ticket (mapeo TuEntrada 2026-07-10):
-// PRINT LENGTH 1113 dots, área segura de filas 0–390. Deben coincidir con
+// Dimensiones físicas calibradas (CAL VIBRA 2026-07-10, ticket "1113x380"):
+// PRINT LENGTH 1113 dots, área imprimible de filas 0–380. Deben coincidir con
 // STOCK en ApiTickets/services/fglConstants.js.
 const DOTS_W = 1113;
-const DOTS_H = 390;
+const DOTS_H = 380;
 const DEFAULT_STUB_END_COL = 280;
 
 // Talón derecho (talón de control, sin QR, rotado 180°). Default idéntico al
@@ -65,7 +65,9 @@ const SIZE_OPTIONS = [
 
 // Metadata de las zonas editables (coincide con las claves válidas de
 // controllers/ticketTemplate.controller.js:configSchema en el backend).
-// La zona `qr` no tiene panel propio (se posiciona junto con el logo/talón).
+// La zona `qr` tiene panel de posición (fila/columna) pero NO switch de
+// visibilidad (noToggle): el motor SIEMPRE imprime el QR — un toggle acá
+// sería un no-op engañoso.
 // `sizeDefault` es el tamaño que aplica el motor cuando la zona no trae
 // `size` explícito (services/fglTemplate.js:DEFAULT_CONFIG.zonas, verificado
 // ahí mismo — no en este archivo). codigo/emision/leyendas/pie siempre
@@ -82,6 +84,7 @@ const ZONES = [
   { key: 'tipo', label: 'Tipo de entrada', hasSize: false, hasCol: false },
   { key: 'precio', label: 'Precio', hasSize: true, hasCol: false, sizeDefault: 'M' },
   { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: false },
+  { key: 'qr', label: 'QR', hasSize: false, hasCol: true, noToggle: true },
   { key: 'marca', label: 'Marca talón', hasSize: false, hasCol: true },
   { key: 'codigo', label: 'Código talón', hasSize: false, hasCol: true },
   { key: 'emision', label: 'Fecha emisión talón', hasSize: false, hasCol: true },
@@ -516,7 +519,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           </Tooltip>
         )
         : zone.label,
-      extra: (
+      extra: zone.noToggle ? null : (
         // stopPropagation en ambos handlers: el click en el Switch no debe
         // abrir/cerrar el panel del Collapse.
         <span onClick={(e) => e.stopPropagation()}>
@@ -533,7 +536,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           <InputNumber
             addonBefore="Fila"
             min={0}
-            max={389}
+            max={379}
             style={{ width: '100%' }}
             value={zona.row}
             onChange={(v) => setZona(zone.key, { row: v ?? undefined })}

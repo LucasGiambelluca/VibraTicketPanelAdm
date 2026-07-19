@@ -21,7 +21,11 @@ export function screenToDots(px, k) {
   return Math.round(px / k);
 }
 
-const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+// Con un rango invertido (max < min) el clamp normal devolvería el max, o sea
+// un valor FUERA del rango pedido: basura silenciosa. Devolver el min es la
+// única respuesta sana, y evita que una caja mal formada de la config se
+// convierta en coordenadas negativas.
+const clamp = (v, min, max) => (max < min ? min : Math.min(max, Math.max(min, v)));
 
 /**
  * Mueve una zona por un delta en dots, recortando contra el lienzo.

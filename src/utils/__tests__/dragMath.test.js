@@ -52,6 +52,15 @@ describe('applyResize', () => {
     expect(applyResize({ col: 300, colEnd: 700 }, 'right', -1000)).toEqual({ col: 300, colEnd: 300 + MIN_BOX_W });
   });
 
+  it('no devuelve coordenadas negativas con una caja más angosta que el mínimo', () => {
+    // Una caja de config vieja o editada a mano puede venir con colEnd < MIN_BOX_W.
+    // El rango del clamp queda invertido y sin la guarda devolvía col negativo
+    // y una caja dada vuelta (col > colEnd).
+    const r = applyResize({ col: 0, colEnd: 10 }, 'left', -100);
+    expect(r.col).toBeGreaterThanOrEqual(0);
+    expect(r.col).toBeLessThanOrEqual(r.colEnd);
+  });
+
   it('no se sale del lienzo', () => {
     expect(applyResize({ col: 300, colEnd: 1100 }, 'right', 500).colEnd).toBe(CANVAS.COLS - 1);
     expect(applyResize({ col: 100, colEnd: 700 }, 'left', -500).col).toBe(0);

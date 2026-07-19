@@ -12,6 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert } from 'antd';
 import { FONTS } from '../../utils/fglSimulator';
 import { fitTextStyle, createMeasurer } from '../../utils/textFit';
+import { screenToDots, applyMove, hitsPerforation } from '../../utils/dragMath';
 
 const FONT_FAMILY = '"Courier New", Courier, monospace';
 
@@ -20,6 +21,65 @@ const FONT_FAMILY = '"Courier New", Courier, monospace';
 // STOCK en ApiTickets/services/fglConstants.js.
 const DOTS_W = 1113;
 const DOTS_H = 380;
+
+// Área segura del MOTOR (SAFE en ApiTickets/services/ticketLayout.js): todo lo
+// que se salga de acá lo rechaza verifyLayout al soltar. Ojo: NO es el lienzo
+// entero — el clamp de dragMath (0..1112) es más flojo a propósito, porque es
+// aritmética pura y no conoce el margen físico del cartón. Si el resaltado en
+// vivo usara el lienzo, el usuario podría soltar en una zona que el cliente
+// pintó de verde y el backend rechaza acto seguido, que es exactamente el tipo
+// de mentira que este preview existe para no cometer.
+const SAFE = { rowMin: 5, rowMax: 375, colMin: 5, colMax: 1105 };
+
+// Rectángulo en pantalla de un elemento del preview, en dots del lienzo.
+// Devuelve null si el elemento no trae suficiente geometría (backend viejo por
+// parseFgl, o una fila suelta del bitmap del logo): sin caja no hay arrastre ni
+// resaltado, que es preferible a inventar un rectángulo.
+//
+// OJO con la rotación. `row`/`col` es el punto de ANCLAJE FGL, que cambia con
+// la rotación (ticketTemplate.controller.js:toPreviewElements):
+//   0°   -> ancla arriba-izquierda   (box.top, box.left)
+//   180° -> ancla abajo-derecha      (box.top + box.h, box.left + box.w)
+//   270° -> ancla abajo-izquierda    (box.top + box.h, box.left)
+// En cambio boxW/boxH YA vienen en ejes de PANTALLA para toda rotación (son
+// el.box.w/h del motor, ver el mismo archivo), así que acá NO se intercambian:
+// un elemento a 270° mide boxW de ancho y boxH de alto en pantalla. Invertirlos
+// haría que el resaltado de colisión se dispare sobre los elementos equivocados.
+// Lo único que corrige la rotación es de dónde se despeja el borde superior
+// izquierdo a partir del ancla.
+function bboxOfElement(el) {
+  if (el.type === 'text') {
+    if (!Number.isFinite(el.boxW) || !Number.isFinite(el.boxH)) return null;
+    const w = el.boxW;
+    const h = el.boxH;
+    if (el.rotation === 180) return { top: el.row - h, left: el.col - w, w, h };
+    if (el.rotation === 270) return { top: el.row - h, left: el.col, w, h };
+    return { top: el.row, left: el.col, w, h };
+  }
+  if (el.type === 'qr') {
+    const side = el.modules * el.pointSize;
+    return { top: el.row, left: el.col, w: side, h: side };
+  }
+  if (el.type === 'graphic') {
+    // Solo la PRIMERA fila del logo trae la caja completa (boxTop/boxLeft/
+    // boxW/boxH). Las demás son tiras de 1 dot de alto: darles caja propia
+    // pondría 100 rectángulos de arrastre superpuestos sobre el mismo logo.
+    if (!Number.isFinite(el.boxW) || !Number.isFinite(el.boxH)) return null;
+    return { top: el.boxTop, left: el.boxLeft, w: el.boxW, h: el.boxH };
+  }
+  if (el.type === 'box') {
+    return { top: el.row, left: el.col, w: el.width, h: el.height };
+  }
+  return null;
+}
+
+// Delta efectivo del arrastre: el eje bloqueado con Shift no se aplica ni al
+// dibujo optimista ni al valor que se escribe, así ambos cuentan la misma
+// historia.
+const deltaOf = (drag) => ({
+  dRow: drag.lockAxis === 'x' ? 0 : drag.dRow,
+  dCol: drag.lockAxis === 'y' ? 0 : drag.dCol,
+});
 
 // ---------------------------------------------------------------------------
 // TicketCanvas: dibuja los elementos resueltos sobre un lienzo de DOTS_W x
@@ -31,9 +91,23 @@ const DOTS_H = 380;
 // trae su boxW/boxH), pero se reciben acá porque son el contrato del preview y
 // las consumen los overlays de zona.
 // ---------------------------------------------------------------------------
-export default function TicketCanvas({ elements, stubEndCol, talon2StartCol, metrics, boxes }) {
+export default function TicketCanvas({
+  elements,
+  stubEndCol,
+  talon2StartCol,
+  metrics,
+  boxes,
+  zoneOrigins,
+  onZoneChange,
+}) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(0);
+  // Arrastre optimista: mientras el puntero está abajo el elemento se mueve
+  // local a 60fps, sin ida y vuelta al servidor. Al soltar se escribe la config
+  // y el backend re-resuelve: el elemento salta a donde el MOTOR lo puso, que
+  // puede no ser donde lo soltó el mouse (centrado, colisión, degradación de
+  // fuente). Ese salto es la señal honesta de que la autoridad es el motor.
+  const [drag, setDrag] = useState(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -58,6 +132,50 @@ export default function TicketCanvas({ elements, stubEndCol, talon2StartCol, met
   // existe para arreglar.
   const approximate = createMeasurer(FONT_FAMILY).approximate === true;
 
+  // Perforaciones ACTIVAS. `talon2StartCol` llega en null cuando el talón
+  // derecho está oculto, y entonces su perforación no existe: pasarla igual
+  // pintaría de rojo elementos que no chocan con nada. Misma regla que el
+  // backend (talon2Visible ? [perf1, perf2] : [perf1]).
+  const perforaciones = Number.isFinite(talon2StartCol) ? [stubEndCol, talon2StartCol] : [stubEndCol];
+
+  const puedeArrastrar = (zoneId) => !!(zoneId && onZoneChange && zoneOrigins?.[zoneId]);
+
+  const handlePointerDown = (zoneId) => (e) => {
+    if (!puedeArrastrar(zoneId)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Captura: el arrastre sobrevive a que el cursor se vaya del elemento (que
+    // con elementos de 20 dots de alto pasa apenas se mueve el mouse).
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setDrag({ zoneId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dRow: 0, dCol: 0, lockAxis: null });
+  };
+
+  const handlePointerMove = (e) => {
+    if (!drag) return;
+    const dCol = screenToDots(e.clientX - drag.startX, k);
+    const dRow = screenToDots(e.clientY - drag.startY, k);
+    // Shift = bloquear al eje dominante. 'x' en dragMath significa "solo
+    // horizontal" (anula dRow), así que manda el eje con más recorrido.
+    const lockAxis = e.shiftKey ? (Math.abs(dCol) >= Math.abs(dRow) ? 'x' : 'y') : null;
+    setDrag((prev) => (prev ? { ...prev, dRow, dCol, lockAxis } : prev));
+  };
+
+  const handlePointerUp = () => {
+    if (!drag) return;
+    setDrag(null);
+    const origen = zoneOrigins?.[drag.zoneId];
+    if (!origen) return;
+    const d = deltaOf(drag);
+    // Un click sin desplazamiento no es un movimiento: escribir la config
+    // igual dispararía un preview entero para dejar todo donde estaba.
+    if (!d.dRow && !d.dCol) return;
+    onZoneChange?.(drag.zoneId, applyMove(origen, d));
+  };
+
+  const handlePointerCancel = () => setDrag(null);
+
+  const dragDelta = drag ? deltaOf(drag) : null;
+
   return (
     <div ref={containerRef} style={{ width: '100%' }}>
       {approximate && (
@@ -70,6 +188,13 @@ export default function TicketCanvas({ elements, stubEndCol, talon2StartCol, met
       )}
       <div style={{ width: '100%', height: heightPx, overflow: 'hidden' }}>
         <div
+          // move/up/cancel van en el CONTENEDOR, no en cada elemento: con un
+          // arrastre rápido el puntero adelanta al elemento y los eventos
+          // caerían fuera, cortando el arrastre a mitad de camino. Los del
+          // elemento capturado igual burbujean hasta acá.
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
           style={{
             width: DOTS_W,
             height: DOTS_H,
@@ -83,9 +208,35 @@ export default function TicketCanvas({ elements, stubEndCol, talon2StartCol, met
             color: '#191919',
           }}
         >
-          {elements.map((el, idx) => (
-            <TicketElement key={idx} el={el} />
-          ))}
+          {elements.map((el, idx) => {
+            // Una zona puede tener MÁS DE UN elemento (`codigo` se parte en
+            // `codigo` y `codigo2` cuando el número de ticket es largo), así
+            // que se desplaza todo lo que comparta zoneId, no solo lo agarrado.
+            const arrastrando = !!(dragDelta && el.zoneId && el.zoneId === drag.zoneId);
+            const offset = arrastrando ? dragDelta : null;
+            const bbox = bboxOfElement(el);
+            let invalido = false;
+            if (arrastrando && bbox) {
+              const proy = { top: bbox.top + offset.dRow, left: bbox.left + offset.dCol, w: bbox.w, h: bbox.h };
+              invalido =
+                hitsPerforation(proy, perforaciones) ||
+                proy.top < SAFE.rowMin ||
+                proy.top + proy.h > SAFE.rowMax ||
+                proy.left < SAFE.colMin ||
+                proy.left + proy.w > SAFE.colMax;
+            }
+            return (
+              <TicketElement
+                key={idx}
+                el={el}
+                bbox={bbox}
+                offset={offset}
+                invalido={invalido}
+                draggable={puedeArrastrar(el.zoneId) && !!bbox}
+                onPointerDown={handlePointerDown(el.zoneId)}
+              />
+            );
+          })}
 
           {/* Línea de perforación del talón */}
           <div
@@ -131,7 +282,40 @@ export default function TicketCanvas({ elements, stubEndCol, talon2StartCol, met
   );
 }
 
-function TicketElement({ el }) {
+// Dibujo del elemento + su rectángulo de arrastre. El rectángulo va aparte del
+// dibujo a propósito: el texto se pinta en un <div> shrink-to-fit rotado y
+// escalado (y el logo, en tiras de 1 dot de alto), o sea blancos de mouse
+// pésimos. El overlay usa la caja REAL del motor, así el usuario agarra —y ve
+// resaltado— exactamente el rectángulo que el backend va a verificar.
+function TicketElement({ el, bbox, offset, invalido, draggable, onPointerDown }) {
+  const dRow = offset?.dRow || 0;
+  const dCol = offset?.dCol || 0;
+  return (
+    <>
+      <ElementShape el={el} dRow={dRow} dCol={dCol} />
+      {draggable && bbox && (
+        <div
+          data-zone={el.zoneId}
+          data-invalido={invalido ? 'true' : 'false'}
+          onPointerDown={onPointerDown}
+          style={{
+            position: 'absolute',
+            top: bbox.top + dRow,
+            left: bbox.left + dCol,
+            width: bbox.w,
+            height: bbox.h,
+            cursor: 'move',
+            touchAction: 'none', // sin esto el navegador se queda el gesto y hace scroll
+            outline: invalido ? '2px solid #E4574B' : '1px dashed rgba(0,122,255,0.35)',
+            background: invalido ? 'rgba(228,87,75,0.12)' : 'transparent',
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function ElementShape({ el, dRow, dCol }) {
   switch (el.type) {
     case 'text': {
       // El backend manda la caja YA resuelta (boxW/boxH en dots). El preview no
@@ -186,8 +370,8 @@ function TicketElement({ el }) {
         // tinta a [0,w], rotate la manda a [-w,0]×[-lineH,0] y el translate la
         // reubica en [col-along, col] × [row-lineH, row] — el mismo rectángulo
         // que ocupaba antes, ahora con el ancho real de la impresión.
-        style.top = el.row - cross;
-        style.left = el.col - along;
+        style.top = el.row - cross + dRow;
+        style.left = el.col - along + dCol;
         transform = `translate(${along}px, ${cross}px) rotate(180deg) scaleX(${scaleX})`;
       } else if (el.rotation === 90 || el.rotation === 270) {
         // <RR> (90°: texto corre hacia abajo) / <RL> (270°: hacia arriba,
@@ -197,12 +381,12 @@ function TicketElement({ el }) {
         // anclaje, con +90° hacia abajo — misma geometría que la impresora.
         // El scaleX va a la derecha de la rotación: se aplica ANTES, sobre el
         // eje largo del texto sin rotar, que es lo que hay que ajustar.
-        style.top = el.row;
-        style.left = el.col;
+        style.top = el.row + dRow;
+        style.left = el.col + dCol;
         transform = `${el.rotation === 90 ? 'rotate(90deg)' : 'rotate(-90deg)'} scaleX(${scaleX})`;
       } else {
-        style.top = el.row;
-        style.left = el.col;
+        style.top = el.row + dRow;
+        style.left = el.col + dCol;
       }
       style.transform = transform;
 
@@ -216,8 +400,8 @@ function TicketElement({ el }) {
         <div
           style={{
             position: 'absolute',
-            top: el.row,
-            left: el.col,
+            top: el.row + dRow,
+            left: el.col + dCol,
             background: '#191919',
             ...size,
           }}
@@ -229,8 +413,8 @@ function TicketElement({ el }) {
         <div
           style={{
             position: 'absolute',
-            top: el.row,
-            left: el.col,
+            top: el.row + dRow,
+            left: el.col + dCol,
             width: el.width,
             height: el.height,
             border: `${el.thickness}px solid #191919`,
@@ -239,9 +423,9 @@ function TicketElement({ el }) {
         />
       );
     case 'qr':
-      return <QrCanvas el={el} />;
+      return <QrCanvas el={el} dRow={dRow} dCol={dCol} />;
     case 'graphic':
-      return <GraphicCanvas el={el} />;
+      return <GraphicCanvas el={el} dRow={dRow} dCol={dCol} />;
     default:
       return null;
   }
@@ -267,7 +451,7 @@ function hashCell(seed, r, c) {
   return (h >>> 0) / 4294967295;
 }
 
-function QrCanvas({ el }) {
+function QrCanvas({ el, dRow = 0, dCol = 0 }) {
   const { row, col, pointSize, modules, payload } = el;
   const ref = useRef(null);
 
@@ -329,8 +513,8 @@ function QrCanvas({ el }) {
       ref={ref}
       style={{
         position: 'absolute',
-        top: row,
-        left: col,
+        top: row + dRow,
+        left: col + dCol,
         width: sizePx,
         height: sizePx,
         imageRendering: 'pixelated',
@@ -342,7 +526,7 @@ function QrCanvas({ el }) {
 // Un <canvas> por elemento `graphic`: cada elemento es UNA fila del logo
 // (altura 1 dot). Cada par de caracteres hex = 1 byte = 8 dots horizontales,
 // bit más significativo primero (igual que el formato <g#>HEX de BOCA).
-function GraphicCanvas({ el }) {
+function GraphicCanvas({ el, dRow = 0, dCol = 0 }) {
   const { row, col, hex } = el;
   const ref = useRef(null);
   const width = Math.max(1, hex.length * 4);
@@ -377,8 +561,8 @@ function GraphicCanvas({ el }) {
       ref={ref}
       style={{
         position: 'absolute',
-        top: row,
-        left: col,
+        top: row + dRow,
+        left: col + dCol,
         width,
         height: 1,
         imageRendering: 'pixelated',

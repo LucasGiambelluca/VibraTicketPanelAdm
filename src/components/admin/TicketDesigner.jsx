@@ -591,6 +591,41 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   //     derecha (incluye el corredor del serial vertical y el logo).
   const boxOfZone = (zoneKey) => boxes[BOX_OF_ZONE[zoneKey] || zoneKey];
 
+  // Origen (fila/columna actual) de cada zona arrastrable, para que el lienzo
+  // sepa desde DÓNDE mover. Se lee de `boxes`, que es lo que el motor resolvió
+  // — no del elemento agarrado: una zona puede tener varios elementos (`codigo`
+  // se parte en dos líneas) y tomar el origen del segundo escribiría la config
+  // una línea más abajo de donde está la zona.
+  //
+  // La traducción de clave es obligatoria: `handleZoneChange` habla en claves
+  // de CONFIG (`leyendas`) y `boxes` viene indexado por nombre de caja del
+  // MOTOR (`restriccion`). Leer la clave cruda daría undefined, el arrastre
+  // arrancaría desde {row:0, col:0} y el elemento se teletransportaría a la
+  // esquina en el primer movimiento.
+  const originOfZone = (zoneKey) => {
+    const b = boxOfZone(zoneKey);
+    if (!b) return null;
+    const r = rectOfBox(b);
+    if (r) return { row: r.top, col: r.left };
+    // El QR no expone ancho resuelto (depende del payload) y rectOfBox lo
+    // descarta, pero su fila/columna sí están y es todo lo que el arrastre pide.
+    if (Number.isFinite(b.row) && Number.isFinite(b.col)) return { row: b.row, col: b.col };
+    return null;
+  };
+
+  const zoneOrigins = {};
+  for (const zone of ZONES) {
+    const o = originOfZone(zone.key);
+    if (o) zoneOrigins[zone.key] = o;
+  }
+
+  // El lienzo avisa que una zona se movió. Escribimos la config y el efecto de
+  // preview (con su debounce) pide el layout real: la posición definitiva la
+  // decide siempre el backend.
+  const handleZoneChange = (zoneId, cambios) => {
+    setZona(zoneId, cambios);
+  };
+
   const anchoDisponible = (zoneKey) => {
     const propio = rectOfBox(boxOfZone(zoneKey));
     if (!propio) return null;
@@ -941,6 +976,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
             talon2StartCol={talon2Visible ? talon2StartCol : null}
             metrics={metrics}
             boxes={boxes}
+            zoneOrigins={zoneOrigins}
+            onZoneChange={handleZoneChange}
           />
         </Space>
       </div>

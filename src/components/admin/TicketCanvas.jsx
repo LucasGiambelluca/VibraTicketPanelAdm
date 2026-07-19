@@ -12,7 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert } from 'antd';
 import { FONTS } from '../../utils/fglSimulator';
 import { fitTextStyle, createMeasurer } from '../../utils/textFit';
-import { screenToDots, applyMove, hitsPerforation } from '../../utils/dragMath';
+import { screenToDots, applyMove, hitsPerforation, CANVAS } from '../../utils/dragMath';
 
 const FONT_FAMILY = '"Courier New", Courier, monospace';
 
@@ -80,6 +80,39 @@ const deltaOf = (drag) => ({
   dRow: drag.lockAxis === 'x' ? 0 : drag.dRow,
   dCol: drag.lockAxis === 'y' ? 0 : drag.dCol,
 });
+
+/**
+ * Config a escribir para trasladar una zona por un delta.
+ *
+ * Mover = trasladar la caja entera. Escribir solo `col` mueve el borde
+ * izquierdo y deja el derecho quieto, o sea ACHICA la caja — y el alineado
+ * entonces redistribuye el texto adentro, que es por qué las zonas centradas
+ * se movían la mitad del arrastre y las alineadas a la derecha se pasaban.
+ * Redimensionar bordes por separado es el trabajo de los handles (Task 11).
+ *
+ * Efecto lateral asumido: la plantilla guardada pasa a tener el ancho
+ * EXPLÍCITO en vez de heredarlo del default. Es lo más honesto: los defaults se
+ * calculan a partir de las columnas de perforación, así que una recalibración
+ * de la impresora redimensionaría en silencio una caja que el admin creía haber
+ * dejado ubicada. Si alguien quiere volver a seguir el default, los handles de
+ * resize se lo permiten.
+ *
+ * @param {{row:number, col:number, ancho?:number}} origen posición actual de la zona
+ * @param {{dRow:number, dCol:number}} delta
+ */
+export function moveZoneConfig(origen, delta) {
+  const movido = applyMove(origen, delta);
+  // Zonas sin ancho propio (QR, logo): son puntos, {row, col} ya es la
+  // traslación completa. Escribirles un colEnd inventado sería peor que nada.
+  if (!Number.isFinite(origen.ancho)) return movido;
+  // El par se recorta JUNTO. Si se recortara cada borde por su cuenta, empujar
+  // una caja contra el borde derecho dejaría el izquierdo avanzando y el
+  // derecho clavado en el tope: la caja se achicaría sola, que es el mismo bug
+  // con otro disfraz. Topeando `col` a COLS-1-ancho, la caja se frena entera.
+  const colMax = Math.max(0, CANVAS.COLS - 1 - origen.ancho);
+  const col = Math.min(movido.col, colMax);
+  return { row: movido.row, col, colEnd: col + origen.ancho };
+}
 
 // ---------------------------------------------------------------------------
 // TicketCanvas: dibuja los elementos resueltos sobre un lienzo de DOTS_W x
@@ -169,7 +202,7 @@ export default function TicketCanvas({
     // Un click sin desplazamiento no es un movimiento: escribir la config
     // igual dispararía un preview entero para dejar todo donde estaba.
     if (!d.dRow && !d.dCol) return;
-    onZoneChange?.(drag.zoneId, applyMove(origen, d));
+    onZoneChange?.(drag.zoneId, moveZoneConfig(origen, d));
   };
 
   const handlePointerCancel = () => setDrag(null);

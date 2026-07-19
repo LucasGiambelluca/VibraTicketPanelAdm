@@ -59,9 +59,12 @@ const codigo2 = {
   font: 'F2', hw: [1, 1], row: 316, col: 10, boxW: 235, boxH: 20,
 };
 
+// Origen de cada zona tal como lo arma TicketDesigner desde `boxes`. `ancho`
+// existe solo en las cajas de texto (colEnd - colStart); el QR y el logo son
+// puntos y no lo tienen.
 const ORIGINS = {
-  evento: { row: 104, col: 310 },
-  codigo: { row: 296, col: 10 },
+  evento: { row: 104, col: 310, ancho: 500 },
+  codigo: { row: 296, col: 10, ancho: 235 },
   qr: { row: 100, col: 50 },
   logo: { row: 140, col: 455 },
 };
@@ -101,20 +104,51 @@ describe('TicketCanvas — arrastrar para mover', () => {
     const { container, onZoneChange } = renderCanvas();
     drag(container, 'evento', 50, 20);
     expect(onZoneChange).toHaveBeenCalledTimes(1);
-    // origen {104, 310} + delta {20, 50}
-    expect(onZoneChange).toHaveBeenCalledWith('evento', { row: 124, col: 360 });
+    // origen {104, 310} + delta {20, 50}, con el ancho (500) preservado.
+    expect(onZoneChange).toHaveBeenCalledWith('evento', { row: 124, col: 360, colEnd: 860 });
   });
 
   it('con Shift el movimiento se bloquea al eje dominante', () => {
     const { container, onZoneChange } = renderCanvas();
     // |dx| > |dy| => solo horizontal: la fila no se toca.
     drag(container, 'evento', 50, 20, { shiftKey: true });
-    expect(onZoneChange).toHaveBeenCalledWith('evento', { row: 104, col: 360 });
+    expect(onZoneChange).toHaveBeenCalledWith('evento', { row: 104, col: 360, colEnd: 860 });
 
     onZoneChange.mockClear();
-    // |dy| > |dx| => solo vertical: la columna no se toca.
+    // |dy| > |dx| => solo vertical: ni la columna ni el ancho se tocan.
     drag(container, 'evento', 12, 60, { shiftKey: true });
-    expect(onZoneChange).toHaveBeenCalledWith('evento', { row: 164, col: 310 });
+    expect(onZoneChange).toHaveBeenCalledWith('evento', { row: 164, col: 310, colEnd: 810 });
+  });
+
+  it('arrastrar traslada la caja entera: el elemento se mueve lo mismo que el mouse', () => {
+    // Regresión del bug medido contra el motor real: escribir solo `col` movía
+    // el borde izquierdo y dejaba el derecho quieto, o sea achicaba la caja, y
+    // el alineado se comía parte del desplazamiento (evento centrado avanzaba
+    // +25 con un arrastre de +50; precio, alineado a la derecha, +88). Con los
+    // dos bordes escritos el ancho no cambia y el motor traslada de verdad.
+    const { container, onZoneChange } = renderCanvas();
+
+    drag(container, 'evento', 50, 0);
+    const evento = onZoneChange.mock.calls.at(-1)[1];
+    expect(evento).toEqual({ row: 104, col: 360, colEnd: 860 });
+    expect(evento.colEnd - evento.col).toBe(ORIGINS.evento.ancho); // ancho intacto
+
+    onZoneChange.mockClear();
+    drag(container, 'codigo', -8, 12);
+    const codigo = onZoneChange.mock.calls.at(-1)[1];
+    expect(codigo).toEqual({ row: 308, col: 2, colEnd: 237 });
+    expect(codigo.colEnd - codigo.col).toBe(ORIGINS.codigo.ancho);
+  });
+
+  it('una caja contra el borde se frena entera en vez de achicarse', () => {
+    const { container, onZoneChange } = renderCanvas();
+    // Empujón bien pasado de rosca: 310 + 900 = 1210, fuera del lienzo (1112).
+    drag(container, 'evento', 900, 0);
+    const cfg = onZoneChange.mock.calls.at(-1)[1];
+    // El borde derecho toca el tope y la caja SE FRENA: si se recortara cada
+    // borde por separado quedaría col 1112 / colEnd 1112, o sea ancho 0.
+    expect(cfg).toEqual({ row: 104, col: 612, colEnd: 1112 });
+    expect(cfg.colEnd - cfg.col).toBe(ORIGINS.evento.ancho);
   });
 
   it('un elemento sin zoneId (serial vertical) no es arrastrable ni dispara callback', () => {
@@ -195,6 +229,8 @@ describe('TicketCanvas — arrastrar para mover', () => {
     // Una sola manija para el logo entero, no una por tira de bitmap.
     expect(container.querySelectorAll('[data-zone="logo"]')).toHaveLength(1);
 
+    // Sin colEnd: son puntos posicionados, no cajas de dos bordes. El maxW del
+    // logo es un tamaño de render y lo maneja su slider, no el arrastre.
     drag(container, 'qr', 10, 25);
     expect(onZoneChange).toHaveBeenCalledWith('qr', { row: 125, col: 60 });
 

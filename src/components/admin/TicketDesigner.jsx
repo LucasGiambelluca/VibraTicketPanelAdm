@@ -602,11 +602,22 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   // MOTOR (`restriccion`). Leer la clave cruda daría undefined, el arrastre
   // arrancaría desde {row:0, col:0} y el elemento se teletransportaría a la
   // esquina en el primer movimiento.
+  // `ancho` sale SOLO de las cajas de texto, las únicas que tienen dos bordes
+  // propios (colStart/colEnd). El QR y el logo son puntos posicionados, no
+  // cajas: el logo tiene maxW, pero eso es un TAMAÑO de render, no un borde
+  // derecho — escribirlo como colEnd lo pelearía con el slider de ancho. Sin
+  // `ancho` el arrastre escribe solo {row, col}, que para un punto es la
+  // traslación completa igual.
   const originOfZone = (zoneKey) => {
     const b = boxOfZone(zoneKey);
     if (!b) return null;
+    const esCajaDeTexto = Number.isFinite(b.colStart) && Number.isFinite(b.colEnd);
     const r = rectOfBox(b);
-    if (r) return { row: r.top, col: r.left };
+    if (r) {
+      return esCajaDeTexto
+        ? { row: r.top, col: r.left, ancho: b.colEnd - b.colStart }
+        : { row: r.top, col: r.left };
+    }
     // El QR no expone ancho resuelto (depende del payload) y rectOfBox lo
     // descarta, pero su fila/columna sí están y es todo lo que el arrastre pide.
     if (Number.isFinite(b.row) && Number.isFinite(b.col)) return { row: b.row, col: b.col };

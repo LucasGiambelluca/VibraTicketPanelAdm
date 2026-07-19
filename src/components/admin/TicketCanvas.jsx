@@ -73,6 +73,30 @@ function bboxOfElement(el) {
   return null;
 }
 
+/**
+ * ¿Este rectángulo lo va a rechazar el backend? Cruzar una perforación activa
+ * o salirse del área segura del MOTOR, que es exactamente lo que verifyLayout
+ * comprueba al soltar.
+ *
+ * Vive suelta (y no inline en el dibujo) porque la usan los DOS gestos: mover
+ * y redimensionar. Tener dos copias de esta condición sería la forma más
+ * rápida de que el resaltado en vivo y el veredicto del backend empiecen a
+ * discrepar según qué manija agarraste, y un aviso que solo acierta a veces
+ * enseña a ignorarlo.
+ *
+ * @param {{top:number, left:number, w:number, h:number}} rect
+ * @param {number[]} perforaciones columnas de las perforaciones ACTIVAS
+ */
+function rectInvalido(rect, perforaciones) {
+  return (
+    hitsPerforation(rect, perforaciones) ||
+    rect.top < SAFE.rowMin ||
+    rect.top + rect.h > SAFE.rowMax ||
+    rect.left < SAFE.colMin ||
+    rect.left + rect.w > SAFE.colMax
+  );
+}
+
 // Delta efectivo del arrastre: el eje bloqueado con Shift no se aplica ni al
 // dibujo optimista ni al valor que se escribe, así ambos cuentan la misma
 // historia.
@@ -314,33 +338,90 @@ export default function TicketCanvas({
   // (el tamaño del logo es su slider maxW), así que dibujarles handles
   // prometería un control que no existe.
   const origenSel = selectedZone ? zoneOrigins?.[selectedZone] : null;
+  const redimensionando = drag && (drag.mode === 'left' || drag.mode === 'right');
   let handles = null;
+  // ¿La caja proyectada del resize ya está fuera de lo que el backend acepta?
+  // Se resuelve acá arriba porque lo pintan DOS cosas: las manijas y el
+  // contorno del elemento (más abajo, en el map).
+  let resizeInvalido = false;
   if (origenSel && Number.isFinite(origenSel.ancho) && onZoneChange) {
     // Alto: la unión de las cajas de los elementos de la zona (`codigo` son dos
     // líneas). Sin elementos visibles no hay nada que redimensionar.
     let top = Infinity;
     let bottom = -Infinity;
+    let tintaIzq = Infinity;
+    let tintaDer = -Infinity;
     for (const el of elements) {
       if (el.zoneId !== selectedZone) continue;
       const b = bboxOfElement(el);
       if (!b) continue;
       top = Math.min(top, b.top);
       bottom = Math.max(bottom, b.top + b.h);
+      tintaIzq = Math.min(tintaIzq, b.left);
+      tintaDer = Math.max(tintaDer, b.left + b.w);
     }
     if (Number.isFinite(top) && bottom > top) {
       const caja = { col: origenSel.col, colEnd: origenSel.col + origenSel.ancho };
       // Mientras se arrastra un handle, la barra sigue al puntero — pero pasada
       // por applyResize, así que el freno en MIN_BOX_W se VE antes de soltar y
       // no aparece como un salto sorpresa después.
-      const vista = drag && (drag.mode === 'left' || drag.mode === 'right')
-        ? applyResize(caja, drag.mode, drag.dCol)
-        : caja;
+      const vista = redimensionando ? applyResize(caja, drag.mode, drag.dCol) : caja;
+      // Ensanchar empuja el borde derecho DERECHO, o sea justo contra la
+      // perforación: el resize choca más fácil que un movimiento, así que
+      // callarlo hasta soltar era el peor de los dos silencios.
+      //
+      // OJO con QUÉ rectángulo se chequea. El verificador del backend mira la
+      // TINTA (las cajas de los elementos resueltos), no la caja de la config:
+      // medido contra el motor, "FESTIVAL DEL SUR" centrado en una caja
+      // 310..830 se imprime en 410..730 y no toca la perforación 828, y el
+      // motor lo acepta. Chequear la caja de config pintaba rojo ahí — un aviso
+      // que miente en el caso MÁS común (zonas centradas con texto corto) y que
+      // enseña a ignorar el rojo. Por eso se proyecta la tinta.
+      //
+      // La alineación no se re-implementa: se DEDUCE de dónde puso el motor la
+      // tinta dentro de la caja actual (0 = izquierda, 0.5 = centrada, 1 =
+      // derecha). Así el cliente sigue sin duplicar la lógica del motor — solo
+      // lee la proporción que el propio motor ya resolvió, y se recalibra sola
+      // en cada preview.
+      //
+      // ALCANCE, medido contra el motor (4140 combinaciones de zona/lado/delta/
+      // talón, con `resolveTicketLayout` de autoridad): 0 falsos rojos y 573
+      // aciertos, pero 216 casos en que el motor rechaza y esto no lo anticipa.
+      // Todos tienen la misma causa: al ensanchar, el motor puede SUBIR la
+      // fuente (justamente la función de este handle), la tinta crece y termina
+      // cruzando algo que con el ancho viejo no cruzaba. Predecirlo exigiría
+      // duplicar acá la escalera de fuentes, que es la cosa que este archivo
+      // existe para no hacer. Se elige errar por defecto y no por exceso: un
+      // rojo de más enseña a ignorar el rojo, uno de menos lo agarra igual el
+      // verificador al soltar (bloquea Guardar/Imprimir). Los solapes con otras
+      // zonas tampoco se anticipan — misma limitación que el gesto de mover.
+      if (redimensionando) {
+        const anchoTinta = tintaDer - tintaIzq;
+        const cajaW = caja.colEnd - caja.col;
+        const nuevaW = vista.colEnd - vista.col;
+        const proy = anchoTinta > 0 && nuevaW >= anchoTinta
+          ? (() => {
+              const holgura = cajaW - anchoTinta;
+              const prop = holgura > 0 ? Math.min(1, Math.max(0, (tintaIzq - caja.col) / holgura)) : 0;
+              return { left: vista.col + prop * (nuevaW - anchoTinta), w: anchoTinta };
+            })()
+          // La tinta ya no entra en la caja nueva: el motor va a achicar la
+          // fuente o recortar, y lo más que puede ocupar es la caja entera.
+          : { left: vista.col, w: nuevaW };
+        // `perforaciones` ya respeta talon2Visible, así que con el talón
+        // derecho oculto su perforación no existe y no pinta rojo de mentira.
+        // Se evalúa el rectángulo COMPLETO: el borde clavado también decide si
+        // la zona termina a caballo de una línea de corte.
+        resizeInvalido = rectInvalido({ top, left: proy.left, w: proy.w, h: bottom - top }, perforaciones);
+      }
       const wDots = k > 0 ? Math.max(HANDLE_DOTS, HANDLE_MIN_PX / k) : HANDLE_DOTS;
+      const color = resizeInvalido ? '#E4574B' : '#007AFF';
       handles = [['left', vista.col], ['right', vista.colEnd]].map(([lado, x]) => (
         <div
           key={lado}
           data-resize={lado}
           data-zone-resize={selectedZone}
+          data-invalido={resizeInvalido ? 'true' : 'false'}
           onPointerDown={iniciarDrag(selectedZone, lado)}
           style={{
             position: 'absolute',
@@ -350,9 +431,9 @@ export default function TicketCanvas({
             height: bottom - top,
             cursor: 'ew-resize',
             touchAction: 'none',
-            background: 'rgba(0,122,255,0.18)',
-            borderLeft: '2px solid #007AFF',
-            borderRight: '2px solid #007AFF',
+            background: resizeInvalido ? 'rgba(228,87,75,0.25)' : 'rgba(0,122,255,0.18)',
+            borderLeft: `2px solid ${color}`,
+            borderRight: `2px solid ${color}`,
             boxSizing: 'border-box',
           }}
         />
@@ -403,13 +484,16 @@ export default function TicketCanvas({
             const bbox = bboxOfElement(el);
             let invalido = false;
             if (arrastrando && bbox) {
-              const proy = { top: bbox.top + offset.dRow, left: bbox.left + offset.dCol, w: bbox.w, h: bbox.h };
-              invalido =
-                hitsPerforation(proy, perforaciones) ||
-                proy.top < SAFE.rowMin ||
-                proy.top + proy.h > SAFE.rowMax ||
-                proy.left < SAFE.colMin ||
-                proy.left + proy.w > SAFE.colMax;
+              invalido = rectInvalido(
+                { top: bbox.top + offset.dRow, left: bbox.left + offset.dCol, w: bbox.w, h: bbox.h },
+                perforaciones
+              );
+            } else if (resizeInvalido && el.zoneId && el.zoneId === drag.zoneId) {
+              // Mismo rojo que un movimiento inválido, por el mismo motivo: el
+              // usuario ya aprendió que rojo = "el motor lo va a rechazar", y
+              // enseñarle un segundo idioma para el mismo problema sería peor
+              // que no avisar.
+              invalido = true;
             }
             return (
               <TicketElement

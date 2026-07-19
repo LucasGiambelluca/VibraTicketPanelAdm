@@ -397,6 +397,75 @@ describe('TicketCanvas — handles de resize', () => {
     expect(parseFloat(resizeHandle(container, 'left').style.left) + w / 2).toBe(310);
   });
 
+  // El verificador del backend mira la TINTA, no la caja de config. Medido
+  // contra el motor: "FESTIVAL DEL SUR" en una caja 310..830 se imprime en
+  // 410..730 y el motor lo ACEPTA aunque la caja monte la perforación 828.
+  // Estos fixtures reproducen esa diferencia (tinta 320 dentro de caja 500);
+  // el `evento` de arriba, con boxW == ancho, es el caso degenerado en que
+  // coinciden y no distingue una cosa de la otra.
+  const eventoCentrado = { ...evento, col: 400, boxW: 320 }; // tinta 400..720 => centrada
+  const eventoDerecha = { ...evento, col: 490, boxW: 320 }; // tinta 490..810 => pegada a la derecha
+
+  it('el resize marca invalido cuando la caja proyectada cruza una perforación', () => {
+    const { container } = renderCanvas({
+      elements: [eventoCentrado], selectedZone: 'evento', talon2StartCol: PERF2,
+    });
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('false');
+
+    // Ensanchar 100 mueve la tinta centrada a 450..770: todavía no llega a la
+    // perforación 2 (828) y el motor lo acepta. Pintar rojo acá sería el falso
+    // rojo que entrena a ignorar el aviso.
+    dragHandle(container, 'right', 100, { soltar: false });
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('false');
+
+    // Ensanchando 300 la tinta pasa a 550..870 y SÍ cruza la 828 — verificado
+    // contra el motor, que devuelve "evento: cruza la perforacion (col 828)".
+    dragHandle(container, 'right', 300, { soltar: false });
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('true');
+    // El contorno del elemento se pinta igual que en un movimiento inválido.
+    expect(handleOf(container, 'evento').dataset.invalido).toBe('true');
+    // Y el handle izquierdo, aunque no se movió, también avisa: lo inválido es
+    // la zona entera, no uno de sus bordes.
+    expect(resizeHandle(container, 'left').dataset.invalido).toBe('true');
+  });
+
+  it('el resize no marca invalido por la perforación 2 si el talón derecho está oculto', () => {
+    // Mismo arrastre que arriba, pero sin talón derecho: esa perforación no
+    // existe y pintar rojo ahí enseñaría a ignorar el aviso. El motor también
+    // lo acepta (verificado: talon2=OFF, dCol=300 => sin errores).
+    const { container } = renderCanvas({
+      elements: [eventoCentrado], selectedZone: 'evento', talon2StartCol: null,
+    });
+    dragHandle(container, 'right', 300, { soltar: false });
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('false');
+    expect(handleOf(container, 'evento').dataset.invalido).toBe('false');
+  });
+
+  it('el resize marca invalido cuando la caja proyectada se sale del área segura', () => {
+    // Tinta pegada al borde derecho: ensanchar 300 la lleva a 790..1110, y
+    // 1110 pasa SAFE.colMax (1105) aunque siga dentro del lienzo (1112).
+    const { container } = renderCanvas({
+      elements: [eventoDerecha], selectedZone: 'evento', talon2StartCol: null,
+    });
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('false');
+    dragHandle(container, 'right', 300, { soltar: false });
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('true');
+  });
+
+  it('el resize proyecta la TINTA, no la caja: una caja que monta la perforación con el texto lejos no es inválida', () => {
+    // Regresión del falso rojo: la primera versión de este chequeo miraba
+    // col/colEnd de la config, así que marcaba en rojo la caja 310..840 aunque
+    // su texto centrado (410..720) no toque la perforación 828 — y el motor la
+    // acepta sin un solo error. El rojo tiene que significar lo mismo que el
+    // veredicto del backend, o no significa nada.
+    const { container } = renderCanvas({
+      elements: [eventoCentrado], selectedZone: 'evento', talon2StartCol: PERF2,
+    });
+    dragHandle(container, 'right', 30, { soltar: false }); // caja 310..840, monta la 828
+    expect(resizeHandle(container, 'right').dataset.invalido).toBe('false');
+    expect(handleOf(container, 'evento').dataset.invalido).toBe('false');
+  });
+
   it('un click en el handle sin desplazamiento no escribe config', () => {
     const { container, onZoneChange } = renderCanvas({ selectedZone: 'evento' });
     dragHandle(container, 'right', 0);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fitTextStyle } from '../textFit';
+import { fitTextStyle, createMeasurer } from '../textFit';
 
 // Medidor falso: simula una fuente cuyo glifo ocupa 0.6 del em de alto y
 // 0.5 del em de ancho por carácter. jsdom no implementa measureText de verdad
@@ -45,5 +45,29 @@ describe('fitTextStyle', () => {
     const roto = { heightRatio: 0.6, measureWidth: () => 0 };
     const s = fitTextStyle({ text: 'HOLA', w: 100, h: 60 }, roto);
     expect(Number.isFinite(s.scaleX)).toBe(true);
+  });
+});
+
+// jsdom no trae canvas: getContext devuelve null. createMeasurer NO puede
+// tirar en ese caso, porque el diseñador entero renderiza en los tests del
+// panel (y un navegador podría negar el contexto en producción).
+//
+// OJO: en este entorno getContext SIEMPRE devuelve null, así que estos tests
+// sólo ejercitan el camino degradado. No son prueba de que el camino real de
+// canvas funcione: ese sólo corre en un navegador de verdad.
+describe('createMeasurer sin contexto 2D', () => {
+  it('devuelve un medidor de respaldo en vez de tirar', () => {
+    const m = createMeasurer('"Courier New", monospace');
+    expect(m).toBeTruthy();
+    expect(m.heightRatio).toBeGreaterThan(0);
+    expect(Number.isFinite(m.measureWidth('HOLA', 100))).toBe(true);
+  });
+
+  it('el medidor de respaldo sirve para fitTextStyle sin producir NaN', () => {
+    const m = createMeasurer('"Courier New", monospace');
+    const s = fitTextStyle({ text: 'HOLA', w: 200, h: 60 }, m);
+    expect(Number.isFinite(s.fontSize)).toBe(true);
+    expect(Number.isFinite(s.scaleX)).toBe(true);
+    expect(s.fontSize).toBeGreaterThan(0);
   });
 });

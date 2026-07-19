@@ -19,7 +19,23 @@ export function createMeasurer(fontFamily, fontWeight = 600) {
   if (measurerCache.has(cacheKey)) return measurerCache.get(cacheKey);
 
   const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext && canvas.getContext('2d');
+  // Sin contexto 2D (jsdom sin el paquete `canvas`, o un navegador que lo
+  // niega) se cae a métricas nominales en vez de tirar: el preview dibuja el
+  // texto con una proporción aproximada, que es mucho mejor que un diseñador
+  // que revienta al renderizar.
+  if (!ctx) {
+    const fallback = {
+      heightRatio: FALLBACK_HEIGHT_RATIO,
+      // 0.6 es el avance por carácter aproximado de una monoespaciada. Es una
+      // estimación grosera y sólo se usa en este camino degradado; con
+      // contexto real se mide la fuente de verdad.
+      measureWidth: (text, fontSizePx) => text.length * fontSizePx * 0.6,
+    };
+    measurerCache.set(cacheKey, fallback);
+    return fallback;
+  }
+
   const PROBE = 100;
   ctx.font = `${fontWeight} ${PROBE}px ${fontFamily}`;
 

@@ -26,6 +26,9 @@ export function createMeasurer(fontFamily, fontWeight = 600) {
   // que revienta al renderizar.
   if (!ctx) {
     const fallback = {
+      // Bandera para que la UI pueda avisar que el preview está aproximando
+      // en vez de mentir en silencio (ver TicketCanvas).
+      approximate: true,
       heightRatio: FALLBACK_HEIGHT_RATIO,
       // 0.6 es el avance por carácter aproximado de una monoespaciada. Es una
       // estimación grosera y sólo se usa en este camino degradado; con
@@ -49,6 +52,7 @@ export function createMeasurer(fontFamily, fontWeight = 600) {
     : FALLBACK_HEIGHT_RATIO;
 
   const measurer = {
+    approximate: false,
     heightRatio,
     measureWidth: (text, fontSizePx) => {
       ctx.font = `${fontWeight} ${fontSizePx}px ${fontFamily}`;

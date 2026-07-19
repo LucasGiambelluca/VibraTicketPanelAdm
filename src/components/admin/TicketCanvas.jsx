@@ -9,7 +9,11 @@
 // impresión se separen, que es exactamente el bug que este diseñador existe
 // para evitar.
 import React, { useEffect, useRef, useState } from 'react';
+import { Alert } from 'antd';
 import { FONTS } from '../../utils/fglSimulator';
+import { fitTextStyle, createMeasurer } from '../../utils/textFit';
+
+const FONT_FAMILY = '"Courier New", Courier, monospace';
 
 // Dimensiones físicas calibradas (CAL VIBRA 2026-07-10, ticket "1113x380"):
 // PRINT LENGTH 1113 dots, área imprimible de filas 0–380. Deben coincidir con
@@ -18,11 +22,16 @@ const DOTS_W = 1113;
 const DOTS_H = 380;
 
 // ---------------------------------------------------------------------------
-// TicketCanvas: dibuja los elementos de parseFgl() sobre un lienzo de
-// 1050x384 "dots" (1 dot = 1px) escalado con transform para caber en el
-// ancho disponible. Puramente presentacional, sin llamadas a la API.
+// TicketCanvas: dibuja los elementos resueltos sobre un lienzo de DOTS_W x
+// DOTS_H "dots" (1 dot = 1px) escalado con transform para caber en el ancho
+// disponible. Puramente presentacional, sin llamadas a la API.
+//
+// `metrics` y `boxes` son las métricas efectivas y las cajas resueltas que
+// devuelve /preview. Hoy el dibujo del texto no las necesita (cada elemento ya
+// trae su boxW/boxH), pero se reciben acá porque son el contrato del preview y
+// las consumen los overlays de zona.
 // ---------------------------------------------------------------------------
-export default function TicketCanvas({ elements, stubEndCol, talon2StartCol }) {
+export default function TicketCanvas({ elements, stubEndCol, talon2StartCol, metrics, boxes }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(0);
 
@@ -43,8 +52,22 @@ export default function TicketCanvas({ elements, stubEndCol, talon2StartCol }) {
   const k = width > 0 ? width / DOTS_W : 0;
   const heightPx = DOTS_H * k;
 
+  // Si el navegador no da contexto 2D no se puede medir la tipografía y el
+  // texto se dibuja con proporciones nominales. Se avisa en vez de callarlo:
+  // un preview que aproxima sin decirlo es el mismo pecado que este archivo
+  // existe para arreglar.
+  const approximate = createMeasurer(FONT_FAMILY).approximate === true;
+
   return (
     <div ref={containerRef} style={{ width: '100%' }}>
+      {approximate && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 8 }}
+          message="El navegador no permite medir la tipografía: el preview dibuja con proporciones aproximadas."
+        />
+      )}
       <div style={{ width: '100%', height: heightPx, overflow: 'hidden' }}>
         <div
           style={{
@@ -111,51 +134,78 @@ export default function TicketCanvas({ elements, stubEndCol, talon2StartCol }) {
 function TicketElement({ el }) {
   switch (el.type) {
     case 'text': {
-      const [boxW, charH] = FONTS[el.font] || FONTS.F1;
+      // El backend manda la caja YA resuelta (boxW/boxH en dots). El preview no
+      // recalcula tamaños: pinta exactamente el rectángulo que se va a imprimir.
+      //
+      // Respaldo: un backend viejo (camino parseFgl) no manda boxW/boxH. Ahí se
+      // deriva la caja de la tabla local FONTS — aproximada y sin calibrar,
+      // pero infinitamente mejor que fontSize 0, o sea texto invisible.
+      const fb = FONTS[el.font] || FONTS.F1;
       const hw = el.hw || [1, 1];
-      const fontSize = charH * hw[0];
-      const letterSpacing = boxW * hw[1] - 0.6 * fontSize;
+      // OJO con boxW/boxH en los elementos rotados 90°/270°: el backend los
+      // reporta en ejes de PANTALLA, no del texto. El serial vertical vuelve
+      // como boxW:9 / boxH:224 — 9 es el alto del glifo (F1) y 224 el largo de
+      // la corrida. Verificado contra /preview local, no asumido. Si se pasara
+      // boxW/boxH directo a fitTextStyle, el serial saldría con fontSize
+      // 224/0.62 ≈ 361px aplastado por un scaleX diminuto. Por eso se traduce a
+      // ejes del texto: `along` (largo de la corrida) y `cross` (alto del
+      // glifo). En 0° y 180° los ejes ya coinciden.
+      const rotated = el.rotation === 90 || el.rotation === 270;
+      const fbAlong = (el.text || '').length * fb[0] * hw[1];
+      const fbCross = fb[1] * hw[0];
+      const along = (rotated ? el.boxH : el.boxW) ?? fbAlong;
+      const cross = (rotated ? el.boxW : el.boxH) ?? fbCross;
+      const measurer = createMeasurer(FONT_FAMILY);
+      const { fontSize, scaleX } = fitTextStyle({ text: el.text, w: along, h: cross }, measurer);
+
       const style = {
         position: 'absolute',
-        fontFamily: '"Courier New", Courier, monospace',
+        fontFamily: FONT_FAMILY,
         fontWeight: 600,
         whiteSpace: 'pre',
         fontSize,
         lineHeight: `${fontSize}px`,
-        letterSpacing,
         color: '#191919',
+        transformOrigin: '0 0',
       };
+
+      let transform = `scaleX(${scaleX})`;
       if (el.rotation === 180) {
         // Talón derecho (<RU>, fglSimulator.js): (el.row, el.col) es el punto
         // de anclaje del comando FGL, que para RU es el extremo DERECHO/ABAJO
         // de la corrida en el sistema de coordenadas SIN rotar (el texto
         // "construye hacia arriba", cheatsheet §4) — o sea, la esquina
         // inferior-derecha de la caja, no la superior-izquierda como en NR.
-        // Rotar 180° alrededor del centro de esa caja no mueve su bounding
-        // box (sigue ocupando el mismo rectángulo), solo voltea el contenido:
-        // exactamente el efecto visual de imprimir con <RU>, sin necesitar
-        // fidelidad física perfecta (alcanza con mostrar el talón girado en
-        // el lugar correcto).
-        const width = el.text.length * boxW * hw[1];
-        style.top = el.row - fontSize;
-        style.left = el.col - width;
-        style.width = width;
-        style.transform = 'rotate(180deg)';
-        style.transformOrigin = 'center';
+        //
+        // OJO con el orden y el origen: la caja del <div> es shrink-to-fit, o
+        // sea el ancho MEDIDO sin escalar, que no es `w`. Con
+        // transformOrigin:'center' (lo que hacía el código viejo, cuando el
+        // ancho del div sí era el final) el scaleX mueve el bounding box medio
+        // (medido - w) y el talón queda corrido. Por eso acá se ancla en 0 0 y
+        // se compone translate(w,h) ∘ rotate(180°) ∘ scaleX: scaleX lleva la
+        // tinta a [0,w], rotate la manda a [-w,0]×[-lineH,0] y el translate la
+        // reubica en [col-along, col] × [row-lineH, row] — el mismo rectángulo
+        // que ocupaba antes, ahora con el ancho real de la impresión.
+        style.top = el.row - cross;
+        style.left = el.col - along;
+        transform = `translate(${along}px, ${cross}px) rotate(180deg) scaleX(${scaleX})`;
       } else if (el.rotation === 90 || el.rotation === 270) {
         // <RR> (90°: texto corre hacia abajo) / <RL> (270°: hacia arriba,
         // emisión vertical del talón). Se dibuja la corrida horizontal y se
         // rota alrededor del punto de anclaje (top-left = el <RC> del FGL):
         // con -90° el texto queda extendiéndose hacia arriba desde el
         // anclaje, con +90° hacia abajo — misma geometría que la impresora.
+        // El scaleX va a la derecha de la rotación: se aplica ANTES, sobre el
+        // eje largo del texto sin rotar, que es lo que hay que ajustar.
         style.top = el.row;
         style.left = el.col;
-        style.transform = el.rotation === 90 ? 'rotate(90deg)' : 'rotate(-90deg)';
-        style.transformOrigin = '0 0';
+        transform = `${el.rotation === 90 ? 'rotate(90deg)' : 'rotate(-90deg)'} scaleX(${scaleX})`;
       } else {
         style.top = el.row;
         style.left = el.col;
       }
+      style.transform = transform;
+
       return <div style={style}>{el.text}</div>;
     }
     case 'line': {

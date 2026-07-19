@@ -63,6 +63,11 @@ describe('createMeasurer sin contexto 2D', () => {
     expect(Number.isFinite(m.measureWidth('HOLA', 100))).toBe(true);
   });
 
+  it('marca approximate para que la UI pueda avisar que está aproximando', () => {
+    const m = createMeasurer('"Courier New", monospace');
+    expect(m.approximate).toBe(true);
+  });
+
   it('el medidor de respaldo sirve para fitTextStyle sin producir NaN', () => {
     const m = createMeasurer('"Courier New", monospace');
     const s = fitTextStyle({ text: 'HOLA', w: 200, h: 60 }, m);

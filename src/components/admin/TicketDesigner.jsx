@@ -189,6 +189,13 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [fixture, setFixture] = useState('normal');
   const [elements, setElements] = useState([]);
   const [warnings, setWarnings] = useState([]);
+  // Métricas de fuente efectivas y estado por zona: vienen del backend en cada
+  // preview. No se hardcodean acá — antes vivían en fglSimulator.FONTS y se
+  // desincronizaban después de calibrar la impresora, así que el preview
+  // dibujaba con anchos viejos y mentía sobre el tamaño real.
+  const [metrics, setMetrics] = useState(null);
+  const [zoneState, setZoneState] = useState({});
+  const [boxes, setBoxes] = useState({});
   // Errores del verificador de layout (solapes / cruces de perforación):
   // bloquean Guardar e Imprimir prueba (regla 5 del motor de cajas).
   const [layoutErrors, setLayoutErrors] = useState([]);
@@ -267,7 +274,15 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     if (!cfg) return undefined;
     const timer = setTimeout(() => {
       const seq = ++previewSeq.current;
-      const applyPreview = ({ fgl, elements: els, warnings: warns, errors }) => {
+      const applyPreview = ({
+        fgl,
+        elements: els,
+        warnings: warns,
+        errors,
+        metrics: mets,
+        zones,
+        boxes: bxs,
+      }) => {
         if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
         if (Array.isArray(els)) {
           // Backend nuevo: elementos resueltos por el motor de cajas (misma
@@ -275,12 +290,21 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           setElements(els);
           setWarnings(warns || []);
           setLayoutErrors(errors || []);
+          // metrics/zones/boxes pueden faltar en un backend intermedio: se
+          // normalizan a null/{} en vez de dejar los de la respuesta anterior,
+          // que describirían otro layout.
+          setMetrics(mets || null);
+          setZoneState(zones || {});
+          setBoxes(bxs || {});
         } else {
           // Compat backend viejo: parsear el FGL con el simulador.
           const parsed = parseFgl(fgl);
           setElements(parsed.elements);
           setWarnings(parsed.warnings);
           setLayoutErrors([]);
+          setMetrics(null);
+          setZoneState({});
+          setBoxes({});
         }
       };
       previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename, eventId)
@@ -766,6 +790,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
             elements={elements}
             stubEndCol={stubEndCol}
             talon2StartCol={talon2Visible ? talon2StartCol : null}
+            metrics={metrics}
+            boxes={boxes}
           />
         </Space>
       </div>

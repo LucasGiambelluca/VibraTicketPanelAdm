@@ -237,6 +237,11 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [metrics, setMetrics] = useState(null);
   const [zoneState, setZoneState] = useState({});
   const [boxes, setBoxes] = useState({});
+  // Zona seleccionada en el lienzo: define sobre CUÁL se dibujan los handles de
+  // resize y a cuál le pegan las flechas del teclado. Es una sola a la vez a
+  // propósito — trece zonas con handles dibujados a la vez taparían el ticket
+  // con controles y no se vería el diseño que se está editando.
+  const [selectedZone, setSelectedZone] = useState(null);
   // Errores del verificador de layout (solapes / cruces de perforación):
   // bloquean Guardar e Imprimir prueba (regla 5 del motor de cajas).
   const [layoutErrors, setLayoutErrors] = useState([]);
@@ -989,6 +994,8 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
             boxes={boxes}
             zoneOrigins={zoneOrigins}
             onZoneChange={handleZoneChange}
+            selectedZone={selectedZone}
+            onSelectZone={setSelectedZone}
           />
         </Space>
       </div>

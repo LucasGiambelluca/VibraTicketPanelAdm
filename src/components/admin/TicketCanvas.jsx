@@ -12,7 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert } from 'antd';
 import { FONTS } from '../../utils/fglSimulator';
 import { fitTextStyle, createMeasurer } from '../../utils/textFit';
-import { screenToDots, applyMove, hitsPerforation, CANVAS } from '../../utils/dragMath';
+import { screenToDots, applyMove, applyResize, hitsPerforation, CANVAS } from '../../utils/dragMath';
 
 const FONT_FAMILY = '"Courier New", Courier, monospace';
 
@@ -114,6 +114,36 @@ export function moveZoneConfig(origen, delta) {
   return { row: movido.row, col, colEnd: col + origen.ancho };
 }
 
+/**
+ * Config a escribir para redimensionar una caja tirando de un handle lateral.
+ *
+ * Asimetría deliberada con `moveZoneConfig`: mover traslada los DOS bordes,
+ * redimensionar mueve UNO y deja el opuesto clavado. Esa es toda la gracia de
+ * los handles — y es también el arreglo de fondo del "el selector de fuente no
+ * hace nada": las cajas tenían ancho heredado del default, así que pedir una
+ * fuente grande solo lograba que el motor la degradara de vuelta para entrar.
+ * Ensanchar la caja ES elegir la fuente.
+ *
+ * `applyResize` ya recorta a MIN_BOX_W (40 dots) y al lienzo, así que el
+ * cliente nunca puede emitir una caja que el Joi del backend rechace con 400
+ * (colEnd - col < 40) ni que el motor descarte volviendo al default.
+ *
+ * @param {{col:number, ancho:number}} origen posición/ancho actual de la caja
+ * @param {'left'|'right'} handle
+ * @param {number} dCol desplazamiento horizontal en dots
+ */
+export function resizeZoneConfig(origen, handle, dCol) {
+  return applyResize({ col: origen.col, colEnd: origen.col + origen.ancho }, handle, dCol);
+}
+
+// Ancho del agarre de los handles, en dots del lienzo. El lienzo entero está
+// escalado por k (habitualmente ~0.5 o menos, según el ancho disponible), así
+// que una barra de 8 dots puede terminar midiendo 4 px reales de pantalla:
+// imposible de agarrar. Se compensa dividiendo por k para que el blanco de
+// mouse mida al menos HANDLE_MIN_PX de pantalla, sea cual sea el zoom.
+const HANDLE_DOTS = 8;
+const HANDLE_MIN_PX = 14;
+
 // ---------------------------------------------------------------------------
 // TicketCanvas: dibuja los elementos resueltos sobre un lienzo de DOTS_W x
 // DOTS_H "dots" (1 dot = 1px) escalado con transform para caber en el ancho
@@ -132,6 +162,8 @@ export default function TicketCanvas({
   boxes,
   zoneOrigins,
   onZoneChange,
+  selectedZone = null,
+  onSelectZone,
 }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(0);
@@ -173,14 +205,28 @@ export default function TicketCanvas({
 
   const puedeArrastrar = (zoneId) => !!(zoneId && onZoneChange && zoneOrigins?.[zoneId]);
 
-  const handlePointerDown = (zoneId) => (e) => {
+  const iniciarDrag = (zoneId, mode) => (e) => {
     if (!puedeArrastrar(zoneId)) return;
     e.preventDefault();
     e.stopPropagation();
+    // Seleccionar en el pointerdown (y no en un click aparte) para que agarrar
+    // un elemento y ver aparecer sus handles sea el mismo gesto.
+    onSelectZone?.(zoneId);
     // Captura: el arrastre sobrevive a que el cursor se vaya del elemento (que
     // con elementos de 20 dots de alto pasa apenas se mueve el mouse).
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    setDrag({ zoneId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dRow: 0, dCol: 0, lockAxis: null });
+    setDrag({ zoneId, mode, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dRow: 0, dCol: 0, lockAxis: null });
+  };
+
+  const handlePointerDown = (zoneId) => iniciarDrag(zoneId, 'move');
+
+  // Click en el fondo del lienzo (no sobre un elemento: esos hacen
+  // stopPropagation) => deseleccionar. Sin esta salida la selección sería un
+  // modo pegajoso: los handles quedan dibujados y el lienzo se queda las
+  // flechas del teclado para siempre, sin forma obvia de soltarlo.
+  const handleBackgroundPointerDown = (e) => {
+    if (e.target !== e.currentTarget) return;
+    onSelectZone?.(null);
   };
 
   const handlePointerMove = (e) => {
@@ -198,6 +244,14 @@ export default function TicketCanvas({
     setDrag(null);
     const origen = zoneOrigins?.[drag.zoneId];
     if (!origen) return;
+    if (drag.mode === 'left' || drag.mode === 'right') {
+      // Resize: solo cuenta el eje horizontal, y solo se mueve el borde
+      // agarrado. El vertical se ignora a propósito — los handles laterales no
+      // cambian la fila.
+      if (!drag.dCol || !Number.isFinite(origen.ancho)) return;
+      onZoneChange?.(drag.zoneId, resizeZoneConfig(origen, drag.mode, drag.dCol));
+      return;
+    }
     const d = deltaOf(drag);
     // Un click sin desplazamiento no es un movimiento: escribir la config
     // igual dispararía un preview entero para dejar todo donde estaba.
@@ -207,7 +261,104 @@ export default function TicketCanvas({
 
   const handlePointerCancel = () => setDrag(null);
 
-  const dragDelta = drag ? deltaOf(drag) : null;
+  const moviendo = drag && drag.mode === 'move';
+  const dragDelta = moviendo ? deltaOf(drag) : null;
+
+  // --- Teclado -------------------------------------------------------------
+  // El listener va en `window` y no en el lienzo a propósito. El pointerdown
+  // del arrastre hace preventDefault (necesario: sin eso el navegador arranca
+  // su propio drag de selección), y eso impide que el foco viaje al elemento
+  // agarrado; atar las flechas a "el lienzo enfocado" dejaría al usuario
+  // seleccionando con el mouse y sin poder mover con el teclado hasta darle un
+  // Tab extra. Con `window` + guardas de target el gesto es uno solo:
+  // seleccionás, movés. El lienzo igual lleva tabIndex para que se lo pueda
+  // alcanzar (y ver enfocado) sin mouse.
+  //
+  // La guarda de target es lo que hace esto tolerable: el diseñador está lleno
+  // de InputNumber (role=spinbutton, un <input>), el textarea de leyendas y
+  // sliders de antd (role=slider, que YA manejan las flechas). Robarles la
+  // tecla ahí sería infuriante, así que se sale sin tocar nada.
+  const puedeTeclado = !!(selectedZone && onZoneChange && zoneOrigins?.[selectedZone]);
+  useEffect(() => {
+    if (!puedeTeclado) return undefined;
+    const onKeyDown = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || (t.closest && t.closest(
+        'input, textarea, select, [contenteditable="true"], [role="slider"], [role="spinbutton"], [role="combobox"], [role="textbox"]'
+      )))) return;
+      const paso = e.shiftKey ? 10 : 1;
+      let dRow = 0;
+      let dCol = 0;
+      if (e.key === 'ArrowUp') dRow = -paso;
+      else if (e.key === 'ArrowDown') dRow = paso;
+      else if (e.key === 'ArrowLeft') dCol = -paso;
+      else if (e.key === 'ArrowRight') dCol = paso;
+      else return; // tecla ajena: NO se hace preventDefault, la página sigue scrolleando
+      e.preventDefault();
+      const origen = zoneOrigins[selectedZone];
+      if (!origen) return;
+      // Mismísima función que usa el mouse al soltar: si el teclado re-derivara
+      // la aritmética, mover con flechas y arrastrar dejarían de coincidir y
+      // una de las dos estaría mintiendo sin que nadie se entere.
+      onZoneChange(selectedZone, moveZoneConfig(origen, { dRow, dCol }));
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [puedeTeclado, selectedZone, zoneOrigins, onZoneChange]);
+
+  // --- Handles de resize ---------------------------------------------------
+  // Solo para la zona seleccionada, y solo si es una CAJA de dos bordes
+  // (`ancho` finito) — mismo portón que usa originOfZone en TicketDesigner. El
+  // QR y el logo son puntos posicionados: no tienen borde derecho que tirar
+  // (el tamaño del logo es su slider maxW), así que dibujarles handles
+  // prometería un control que no existe.
+  const origenSel = selectedZone ? zoneOrigins?.[selectedZone] : null;
+  let handles = null;
+  if (origenSel && Number.isFinite(origenSel.ancho) && onZoneChange) {
+    // Alto: la unión de las cajas de los elementos de la zona (`codigo` son dos
+    // líneas). Sin elementos visibles no hay nada que redimensionar.
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (const el of elements) {
+      if (el.zoneId !== selectedZone) continue;
+      const b = bboxOfElement(el);
+      if (!b) continue;
+      top = Math.min(top, b.top);
+      bottom = Math.max(bottom, b.top + b.h);
+    }
+    if (Number.isFinite(top) && bottom > top) {
+      const caja = { col: origenSel.col, colEnd: origenSel.col + origenSel.ancho };
+      // Mientras se arrastra un handle, la barra sigue al puntero — pero pasada
+      // por applyResize, así que el freno en MIN_BOX_W se VE antes de soltar y
+      // no aparece como un salto sorpresa después.
+      const vista = drag && (drag.mode === 'left' || drag.mode === 'right')
+        ? applyResize(caja, drag.mode, drag.dCol)
+        : caja;
+      const wDots = k > 0 ? Math.max(HANDLE_DOTS, HANDLE_MIN_PX / k) : HANDLE_DOTS;
+      handles = [['left', vista.col], ['right', vista.colEnd]].map(([lado, x]) => (
+        <div
+          key={lado}
+          data-resize={lado}
+          data-zone-resize={selectedZone}
+          onPointerDown={iniciarDrag(selectedZone, lado)}
+          style={{
+            position: 'absolute',
+            top,
+            left: x - wDots / 2,
+            width: wDots,
+            height: bottom - top,
+            cursor: 'ew-resize',
+            touchAction: 'none',
+            background: 'rgba(0,122,255,0.18)',
+            borderLeft: '2px solid #007AFF',
+            borderRight: '2px solid #007AFF',
+            boxSizing: 'border-box',
+          }}
+        />
+      ));
+    }
+  }
 
   return (
     <div ref={containerRef} style={{ width: '100%' }}>
@@ -228,6 +379,8 @@ export default function TicketCanvas({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          onPointerDown={handleBackgroundPointerDown}
+          tabIndex={0}
           style={{
             width: DOTS_W,
             height: DOTS_H,
@@ -266,10 +419,13 @@ export default function TicketCanvas({
                 offset={offset}
                 invalido={invalido}
                 draggable={puedeArrastrar(el.zoneId) && !!bbox}
+                seleccionado={!!el.zoneId && el.zoneId === selectedZone}
                 onPointerDown={handlePointerDown(el.zoneId)}
               />
             );
           })}
+
+          {handles}
 
           {/* Línea de perforación del talón */}
           <div
@@ -320,7 +476,7 @@ export default function TicketCanvas({
 // escalado (y el logo, en tiras de 1 dot de alto), o sea blancos de mouse
 // pésimos. El overlay usa la caja REAL del motor, así el usuario agarra —y ve
 // resaltado— exactamente el rectángulo que el backend va a verificar.
-function TicketElement({ el, bbox, offset, invalido, draggable, onPointerDown }) {
+function TicketElement({ el, bbox, offset, invalido, draggable, seleccionado, onPointerDown }) {
   const dRow = offset?.dRow || 0;
   const dCol = offset?.dCol || 0;
   return (
@@ -330,6 +486,7 @@ function TicketElement({ el, bbox, offset, invalido, draggable, onPointerDown })
         <div
           data-zone={el.zoneId}
           data-invalido={invalido ? 'true' : 'false'}
+          data-selected={seleccionado ? 'true' : 'false'}
           onPointerDown={onPointerDown}
           style={{
             position: 'absolute',
@@ -339,7 +496,11 @@ function TicketElement({ el, bbox, offset, invalido, draggable, onPointerDown })
             height: bbox.h,
             cursor: 'move',
             touchAction: 'none', // sin esto el navegador se queda el gesto y hace scroll
-            outline: invalido ? '2px solid #E4574B' : '1px dashed rgba(0,122,255,0.35)',
+            outline: invalido
+              ? '2px solid #E4574B'
+              : seleccionado
+              ? '2px solid rgba(0,122,255,0.85)'
+              : '1px dashed rgba(0,122,255,0.35)',
             background: invalido ? 'rgba(228,87,75,0.12)' : 'transparent',
           }}
         />

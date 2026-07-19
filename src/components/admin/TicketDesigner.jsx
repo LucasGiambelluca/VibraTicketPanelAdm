@@ -53,10 +53,16 @@ const FIXTURE_OPTIONS = [
   { label: 'Textos largos', value: 'limite' },
 ];
 
-const SIZE_OPTIONS = [
-  { label: 'Grande', value: 'G' },
-  { label: 'Mediano', value: 'M' },
-  { label: 'Chico', value: 'C' },
+// Fuentes disponibles, ordenadas por TAMAÑO FÍSICO REAL. Ojo: no es el orden
+// de los números de fuente — F6 (34x48) es más grande que F3 (20x31), y F3 con
+// multiplicador 2 es más grande que F6. Los tokens y el orden coinciden con
+// SIZE_ORDER en ApiTickets/services/ticketLayout.js.
+// El alto en mm sale de dots / 200 dpi * 25.4.
+const FONT_OPTIONS = [
+  { label: 'Chica (1,9 mm)', value: 'F2' },
+  { label: 'Media (3,9 mm)', value: 'F3' },
+  { label: 'Grande (6,1 mm)', value: 'F6' },
+  { label: 'Enorme (7,9 mm)', value: 'F3x2' },
 ];
 
 // Metadata de las zonas editables (coincide con las claves válidas de
@@ -64,28 +70,63 @@ const SIZE_OPTIONS = [
 // La zona `qr` tiene panel de posición (fila/columna) pero NO switch de
 // visibilidad (noToggle): el motor SIEMPRE imprime el QR — un toggle acá
 // sería un no-op engañoso.
-// `sizeDefault` es el tamaño que aplica el motor cuando la zona no trae
-// `size` explícito (services/fglTemplate.js:DEFAULT_CONFIG.zonas, verificado
-// ahí mismo — no en este archivo). codigo/emision/leyendas/pie siempre
-// imprimen en F1 fijo (sin escalera de tamaño), por eso no llevan control.
-// hasSize solo donde el motor de cajas tiene escalera con preset G/M/C
-// (ticketLayout.js LADDERS): evento, venue, fecha, precio. El resto imprime
-// con fuente fija de su caja (F2 mínimo — F1 prohibida como texto de lectura).
+// `fontDefault` es la fuente que aplica el motor cuando la zona no trae `font`
+// explícito (services/ticketLayout.js:DEFAULT_FONTS, verificado ahí mismo — no
+// en este archivo). hasFont va en TODA zona de texto: desde el refactor del
+// motor de cajas la fuente elegida es el PRIMER escalón de la escalera de
+// cualquier zona, no solo de evento/venue/fecha/precio (antes el resto tenía
+// escalera hardcodeada y el control habría sido un no-op).
+// Sin control de fuente quedan las zonas que no son texto de lectura: `qr`
+// (gráfico), `logo` (bitmap) y `emision` (serial vertical de borde, único uso
+// permitido de F1 — ver regla 1 de ticketLayout.js).
 const ZONES = [
-  { key: 'evento', label: 'Nombre del evento', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'venue', label: 'Venue', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'direccion', label: 'Dirección', hasSize: false, hasCol: false },
-  { key: 'fecha', label: 'Fecha y hora', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'sector', label: 'Sector / entrada', hasSize: false, hasCol: false },
-  { key: 'tipo', label: 'Tipo de entrada', hasSize: false, hasCol: false },
-  { key: 'precio', label: 'Precio', hasSize: true, hasCol: false, sizeDefault: 'M' },
-  { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: false },
-  { key: 'qr', label: 'QR', hasSize: false, hasCol: true, noToggle: true },
-  { key: 'marca', label: 'Marca talón', hasSize: false, hasCol: true },
-  { key: 'codigo', label: 'Código talón', hasSize: false, hasCol: true },
-  { key: 'emision', label: 'Fecha emisión talón', hasSize: false, hasCol: true },
-  { key: 'logo', label: 'Logo', hasSize: false, hasCol: true },
+  { key: 'evento', label: 'Nombre del evento', hasFont: true, fontDefault: 'F3x2' },
+  { key: 'venue', label: 'Venue', hasFont: true, fontDefault: 'F3' },
+  { key: 'direccion', label: 'Dirección', hasFont: true, fontDefault: 'F2' },
+  { key: 'fecha', label: 'Fecha y hora', hasFont: true, fontDefault: 'F3x2' },
+  { key: 'sector', label: 'Sector / entrada', hasFont: true, fontDefault: 'F2' },
+  { key: 'tipo', label: 'Tipo de entrada', hasFont: true, fontDefault: 'F2' },
+  { key: 'precio', label: 'Precio', hasFont: true, fontDefault: 'F3' },
+  { key: 'leyendas', label: 'Leyendas', hasFont: true, fontDefault: 'F2' },
+  { key: 'qr', label: 'QR', hasFont: false, hasCol: true, noToggle: true },
+  { key: 'marca', label: 'Marca talón', hasFont: true, hasCol: true, fontDefault: 'F2' },
+  { key: 'codigo', label: 'Código talón', hasFont: true, hasCol: true, fontDefault: 'F2' },
+  { key: 'emision', label: 'Fecha emisión talón', hasFont: false, hasCol: true },
+  { key: 'logo', label: 'Logo', hasFont: false, hasCol: true },
 ];
+
+// La caja de las leyendas se llama `restriccion` en el motor (buildBoxes) pero
+// sus overrides viven bajo la clave de config `leyendas`. `boxes` viene crudo
+// del backend, así que hay que traducir antes de leerlo — sin esto el aviso de
+// degradación mostraría "la caja tiene 0" y el botón de ensanchar no haría nada.
+const BOX_OF_ZONE = { leyendas: 'restriccion' };
+
+// Límites físicos del cartón (ticketLayout.js: CANVAS/SAFE/buildBoxes.bodyEnd).
+const SAFE_COL_MAX = 1105;
+const MIN_BOX_W = 40; // igual que MIN_BOX_W del motor y el Joi de zonaSchema
+const GAP = 6; // aire mínimo que dejamos contra una perforación o una caja vecina
+
+// Rectángulo (top/bottom/left/right) de una caja del motor, cualquiera sea su
+// forma. Las cajas de texto traen row/maxHeight/colStart/colEnd; los seriales
+// verticales rowTop/rowBottom; el logo row/col/maxW/maxH. El QR no expone
+// ancho resuelto (depende del payload) => null: no participa del cálculo de
+// vecinos, y no hace falta (comparte fila solo con el talón A, ya acotado por
+// la perforación y por el corredor del serial).
+const rectOfBox = (b) => {
+  if (!b) return null;
+  if (Number.isFinite(b.colStart) && Number.isFinite(b.colEnd)) {
+    const top = Number.isFinite(b.row) ? b.row : b.rowTop;
+    const height = Number.isFinite(b.maxHeight)
+      ? b.maxHeight
+      : (Number.isFinite(b.rowBottom) && Number.isFinite(b.rowTop) ? b.rowBottom - b.rowTop : NaN);
+    if (!Number.isFinite(top) || !Number.isFinite(height)) return null;
+    return { top, bottom: top + height, left: b.colStart, right: b.colEnd };
+  }
+  if (Number.isFinite(b.col) && Number.isFinite(b.maxW) && Number.isFinite(b.row)) {
+    return { top: b.row, bottom: b.row + (b.maxH ?? 0), left: b.col, right: b.col + b.maxW };
+  }
+  return null;
+};
 
 // Tamaño default del logo cuando la zona no trae maxW/maxH explícito (dots,
 // ver services/fglTemplate.js:DEFAULT_CONFIG.zonas.logo). Topes 16-400 / 16-200
@@ -513,6 +554,12 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   }
 
   const stubEndCol = cfg.stubEndCol ?? DEFAULT_STUB_END_COL;
+  // Talón derecho: se derivan acá arriba (y no junto a su panel, más abajo)
+  // porque el cálculo de cuánto se puede ensanchar una caja necesita saber
+  // dónde cae la segunda perforación.
+  const talon2 = cfg.talon2 || {};
+  const talon2Visible = talon2.visible === true; // default false, retrocompatible
+  const talon2StartCol = talon2.startCol ?? TALON2_START_COL_DEFAULT;
 
   const printerReady = agentState.ok && agentState.printerReachable;
   const printDisabledReason = agentState.checking
@@ -529,6 +576,78 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const zoneErrors = (key) => {
     const names = ERROR_ALIASES[key] || [key];
     return layoutErrors.filter((e) => names.some((n) => e.includes(`"${n}"`) || e.startsWith(`${n}:`)));
+  };
+
+  // --- Ensanchar la caja de una zona degradada -------------------------------
+  // Ensanchar a ciegas hasta `anchoNecesario` es una trampa: el verificador del
+  // backend rechaza solapes y cruces de perforación, así que un botón "útil"
+  // podría dejar el diseño en error bloqueante (Guardar/Imprimir deshabilitados)
+  // justo después de tocarlo. Por eso se calcula ANTES hasta dónde se puede
+  // llegar sin romper nada, y el botón solo se ofrece habilitado si con ese
+  // margen la fuente pedida entra de verdad.
+  //   - límite físico: la perforación de la derecha (talón A => perf1; cuerpo =>
+  //     perf2-8, el mismo bodyEnd que usa buildBoxes) y el área segura.
+  //   - límite por vecinos: la caja que comparte filas y arranca más a la
+  //     derecha (incluye el corredor del serial vertical y el logo).
+  const boxOfZone = (zoneKey) => boxes[BOX_OF_ZONE[zoneKey] || zoneKey];
+
+  const anchoDisponible = (zoneKey) => {
+    const propio = rectOfBox(boxOfZone(zoneKey));
+    if (!propio) return null;
+    const limiteFisico = propio.left < stubEndCol
+      ? stubEndCol - GAP
+      : Math.min(SAFE_COL_MAX, talon2StartCol - 8);
+    let limite = limiteFisico;
+    let vecino = null;
+    const propioKey = BOX_OF_ZONE[zoneKey] || zoneKey;
+    for (const [k, b] of Object.entries(boxes)) {
+      if (k === propioKey) continue;
+      const r = rectOfBox(b);
+      if (!r || r.left <= propio.left) continue;
+      if (r.top >= propio.bottom || r.bottom <= propio.top) continue; // no comparten filas
+      if (r.left - GAP < limite) {
+        limite = r.left - GAP;
+        vecino = k;
+      }
+    }
+    return { colStart: propio.left, limite, limiteFisico, vecino };
+  };
+
+  // Ensancha la caja de una zona hasta que su texto entre en la fuente pedida.
+  // anchoNecesario ya viene medido sobre el texto ORIGINAL (no el truncado), así
+  // que ensanchar a ese valor alcanza de verdad — un botón que promete y no
+  // cumple sería peor que no tener botón.
+  const ensancharCaja = (zoneKey) => {
+    const necesario = zoneState[zoneKey]?.anchoNecesario;
+    const disp = anchoDisponible(zoneKey);
+    if (!necesario || !disp) return;
+    const colEnd = Math.min(disp.limite, disp.colStart + necesario + 4);
+    // Guarda redundante (el botón ya se deshabilita en estos casos), pero barata:
+    // una caja de menos de 40 dots la rechaza el Joi del backend y la descarta el
+    // motor, así que nunca la escribimos.
+    if (colEnd - disp.colStart < MIN_BOX_W) return;
+    setZona(zoneKey, { col: disp.colStart, colEnd });
+  };
+
+  // Qué puede hacer el botón de ensanchar en esta zona, y si no puede, por qué.
+  const estadoEnsanche = (zoneKey) => {
+    const necesario = zoneState[zoneKey]?.anchoNecesario;
+    const disp = anchoDisponible(zoneKey);
+    if (!necesario || !disp) return { puede: false, motivo: null };
+    const pedido = necesario + 4;
+    if (pedido > disp.limiteFisico - disp.colStart) {
+      return {
+        puede: false,
+        motivo: 'No entra ni a lo ancho del ticket — elegí una fuente más chica o acortá el texto.',
+      };
+    }
+    if (pedido > disp.limite - disp.colStart) {
+      return {
+        puede: false,
+        motivo: `No se puede ensanchar sin pisar "${disp.vecino}" — mové esa zona, o elegí una fuente más chica.`,
+      };
+    }
+    return { puede: true, motivo: null };
   };
 
   const panelItems = ZONES.map((zone) => {
@@ -577,17 +696,49 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
               onChange={(v) => setZona(zone.key, { col: v ?? undefined })}
             />
           )}
-          {zone.hasSize && (
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Tamaño
-              </Text>
+          {zone.hasFont && (
+            <div style={{ marginBottom: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Tamaño de letra</Text>
               <Segmented
                 block
-                options={SIZE_OPTIONS}
-                value={zona.size ?? zone.sizeDefault}
-                onChange={(v) => setZona(zone.key, { size: v })}
+                options={FONT_OPTIONS}
+                value={zona.font || zone.fontDefault}
+                onChange={(v) => setZona(zone.key, { font: v })}
               />
+              {zoneState[zone.key]?.degradado && (() => {
+                const est = estadoEnsanche(zone.key);
+                const caja = rectOfBox(boxOfZone(zone.key));
+                return (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 8 }}
+                    message={`Entró en ${zoneState[zone.key].fontUsado}, no en ${zoneState[zone.key].fontPedido}`}
+                    description={(
+                      <Space direction="vertical" size={4}>
+                        <Text style={{ fontSize: 12 }}>
+                          El texto necesita {zoneState[zone.key].anchoNecesario} dots y la caja tiene{' '}
+                          {(caja?.right ?? 0) - (caja?.left ?? 0)}.
+                        </Text>
+                        {est.puede ? (
+                          <Button size="small" onClick={() => ensancharCaja(zone.key)}>
+                            Ensanchar la caja
+                          </Button>
+                        ) : (
+                          <>
+                            <Button size="small" disabled>
+                              Ensanchar la caja
+                            </Button>
+                            {est.motivo && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>{est.motivo}</Text>
+                            )}
+                          </>
+                        )}
+                      </Space>
+                    )}
+                  />
+                );
+              })()}
             </div>
           )}
           {zone.key === 'leyendas' && (
@@ -647,14 +798,12 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   });
 
   // Talón derecho (segundo talón de control, sin QR, rotado 180° — feature
-  // 2026-07-10): no es una "zona" (no tiene row/col/size individuales, el
+  // 2026-07-10): no es una "zona" (no tiene row/col/font individuales, el
   // layout interno de sus 6 campos es fijo en el backend), por eso vive
   // aparte de ZONES/panelItems.map en lugar de sumarse a la lista de zonas.
   // `talon2` es una clave de nivel superior de cfg (como stubEndCol), no una
-  // entrada de cfg.zonas.
-  const talon2 = cfg.talon2 || {};
-  const talon2Visible = talon2.visible === true; // default false, retrocompatible
-  const talon2StartCol = talon2.startCol ?? TALON2_START_COL_DEFAULT;
+  // entrada de cfg.zonas. (talon2/talon2Visible/talon2StartCol se derivan más
+  // arriba: el cálculo de ensanche de cajas también los necesita.)
   panelItems.push({
     key: 'talon2',
     label: 'Talón derecho',

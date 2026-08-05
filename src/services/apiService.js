@@ -171,6 +171,48 @@ export const adminUsersApi = {
 };
 
 // ============================================
+// ACCESS API - Control de accesos (puertas y personal)
+// ============================================
+/**
+ * Control de accesos: puertas y personal de puerta.
+ *
+ * Los sectores salen de un endpoint y no se tipean: `gate_rules.sector` se
+ * compara como texto exacto contra el sector del ticket, y un nombre mal
+ * escrito no falla al guardar — falla en la puerta.
+ */
+export const accessApi = {
+  listGates: (eventId) =>
+    apiClient.get(`${API_BASE}/access/gates`, { params: { eventId } }),
+
+  createGate: (data) =>
+    apiClient.post(`${API_BASE}/access/gates`, data),
+
+  updateGate: (gateId, data) =>
+    apiClient.put(`${API_BASE}/access/gates/${gateId}`, data),
+
+  deleteGate: (gateId) =>
+    apiClient.delete(`${API_BASE}/access/gates/${gateId}`),
+
+  eventSectors: (eventId) =>
+    apiClient.get(`${API_BASE}/access/events/${eventId}/sectors`),
+
+  listAssignments: (showId) =>
+    apiClient.get(`${API_BASE}/access/shows/${showId}/assignments`),
+
+  createAssignment: (data) =>
+    apiClient.post(`${API_BASE}/access/assignments`, data),
+
+  deleteAssignment: (assignmentId) =>
+    apiClient.delete(`${API_BASE}/access/assignments/${assignmentId}`),
+
+  ticketTypes: (eventId) =>
+    apiClient.get(`${API_BASE}/events/${eventId}/ticket-types`),
+
+  shows: (eventId) =>
+    apiClient.get(`${API_BASE}/shows`, { params: { eventId } }),
+};
+
+// ============================================
 // ADMIN PAYMENTS API - Monitor de Pagos (Solo ADMIN)
 // ============================================
 export const adminPaymentsApi = {

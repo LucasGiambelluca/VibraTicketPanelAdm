@@ -5,10 +5,12 @@
  * devuelven `{ gates: [...] }`, otros `{ success, data: { users: [...] } }`, y
  * `GET /shows` devuelve un array pelado. Verificado uno por uno.
  *
- * Esta función ya estaba copiada a mano en AdminDashboard.jsx y en
- * AdminUsersPanel.jsx. Acá se saca a un módulo para no hacer una tercera copia.
- * Las dos existentes se dejan como están: no hace falta tocarlas para esta
- * función, y cambiarlas arriesga pantallas que hoy andan.
+ * Esta función está copiada a mano en NUEVE archivos del panel: AdminDashboard,
+ * AdminUsersPanel, AdminBanners, DiscountCodes, FinancialReports, ManageOrders,
+ * PaymentMonitor, hooks/useEvents y hooks/useVenues. Acá se saca a un módulo
+ * para que el código nuevo no haga la décima. Las nueve se dejan como están: no
+ * hace falta tocarlas para esta función, y cambiarlas arriesga nueve pantallas
+ * que hoy andan y que esta tarea no prueba.
  */
 export function extractArray(response, key) {
   const payload = response?.data || response;

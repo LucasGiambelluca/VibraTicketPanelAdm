@@ -29,9 +29,14 @@ describe('extractArray: formas reales del backend', () => {
   });
 });
 
+// OJO al armar los inputs de acá: la primera línea de extractArray desenvuelve
+// `.data` como sobre de axios. Un input sin sobre entra a la función ya
+// desenvuelto y sale por una rama distinta de la que dice el nombre del test.
+// Por eso todos los casos de abajo van envueltos en `{ data: ... }`.
 describe('extractArray: formas genéricas', () => {
-  it('usa payload.data cuando es el array', () => {
-    expect(extractArray({ success: true, data: [1, 2] }, 'gates')).toEqual([1, 2]);
+  it('usa payload.data cuando es el array (así viene /admin/payments/logs)', () => {
+    const res = { data: { success: true, data: [1, 2], pagination: {} } };
+    expect(extractArray(res, 'gates')).toEqual([1, 2]);
   });
 
   it('usa payload.rows', () => {
@@ -39,19 +44,25 @@ describe('extractArray: formas genéricas', () => {
   });
 
   it('usa payload.data.rows', () => {
-    expect(extractArray({ data: { rows: [1] } }, 'gates')).toEqual([1]);
+    const res = { data: { data: { rows: [1] } } };
+    expect(extractArray(res, 'gates')).toEqual([1]);
+  });
+
+  it('prioriza la key sobre payload.data', () => {
+    const res = { data: { gates: [1], data: [2, 3] } };
+    expect(extractArray(res, 'gates')).toEqual([1]);
+  });
+
+  it('prioriza la key sobre payload.rows', () => {
+    const res = { data: { gates: [1], rows: [2, 3] } };
+    expect(extractArray(res, 'gates')).toEqual([1]);
   });
 
   // `.data` se desenvuelve primero porque es el sobre de axios, así que gana
-  // sobre la key aunque el objeto tenga las dos. No pasa con ningún endpoint
-  // real; queda anotado para que nadie lo lea al revés.
+  // sobre la key cuando el objeto de afuera tiene las dos. No pasa con ningún
+  // endpoint real; queda anotado para que nadie lo lea al revés.
   it('desenvuelve .data antes de mirar la key', () => {
     expect(extractArray({ gates: [1], data: [2, 3] }, 'gates')).toEqual([2, 3]);
-  });
-
-  it('prioriza la key sobre data.rows dentro del mismo payload', () => {
-    const res = { data: { gates: [1], rows: [2, 3] } };
-    expect(extractArray(res, 'gates')).toEqual([1]);
   });
 });
 

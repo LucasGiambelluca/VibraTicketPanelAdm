@@ -23,8 +23,7 @@ import {
   ReloadOutlined,
   DollarOutlined,
   MoreOutlined,
-  PrinterOutlined,
-  SafetyOutlined
+  PrinterOutlined
 } from '@ant-design/icons';
 import { sectionErrorLine } from '../../lib/sectionErrors';
 import CreateEvent from '../../components/CreateEvent';
@@ -100,11 +99,6 @@ export default function AdminDashboard() {
       key: 'shows',
       icon: <TeamOutlined />,
       label: 'Shows',
-    },
-    {
-      key: 'access-gates',
-      icon: <SafetyOutlined />,
-      label: 'Puertas',
     },
     {
       key: 'venues',

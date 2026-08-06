@@ -118,6 +118,30 @@ describe('StaffCard', () => {
       expect.objectContaining({ userId: '48', showId: '3' })));
   });
 
+  it('relee las puertas al abrir el modal, para ver la recién creada', async () => {
+    // El flujo real es crear la puerta en la tarjeta de arriba y asignarle
+    // gente acá, en ese orden. Las dos tarjetas son independientes: si esta
+    // sólo pidiera las puertas al montarse, la puerta nueva no estaría en el
+    // desplegable y habría que recargar la página entera.
+    const user = userEvent.setup();
+    render(<StaffCard eventId="1" />);
+    await screen.findByText('Ana G.');
+    const antes = accessApi.listGates.mock.calls.length;
+
+    accessApi.listGates.mockResolvedValue({
+      data: { gates: [
+        { id: '7', code: 'NORTE', name: 'Puerta Norte', isActive: true },
+        { id: '9', code: 'NUEVA', name: 'Recién creada', isActive: true },
+      ] },
+    });
+    await user.click(screen.getByRole('button', { name: /asignar persona/i }));
+
+    await waitFor(() =>
+      expect(accessApi.listGates.mock.calls.length).toBeGreaterThan(antes));
+    await user.click(await screen.findByLabelText('Puerta'));
+    expect(await screen.findByTitle('NUEVA · Recién creada')).toBeInTheDocument();
+  });
+
   it('quitar usa el id de la asignación, no el del usuario', async () => {
     // Son dos ids distintos y los dos están en la fila. Mandar el del usuario
     // borra la asignación de otra persona, o ninguna.

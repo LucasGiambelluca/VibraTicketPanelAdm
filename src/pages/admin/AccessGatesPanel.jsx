@@ -25,7 +25,14 @@ export default function AccessGatesPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await eventsApi.getEvents({ limit: 100 });
+        // `status: 'all'` es a propósito. El default de getEvents es 'active',
+        // que en este backend NO significa "publicado" sino "tiene alguna
+        // función futura" (events.controller.js:147). Con el default, un evento
+        // recién creado al que todavía no se le cargaron fechas —o uno cuya
+        // última fecha ya pasó— no aparece en la lista, y sus puertas quedan
+        // inalcanzables desde el panel. Cualquier valor distinto de 'active'
+        // apaga ese filtro.
+        const r = await eventsApi.getEvents({ limit: 100, status: 'all' });
         setEventos(extractArray(r, 'events'));
       } catch (e) {
         message.error('No se pudieron cargar los eventos');

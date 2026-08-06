@@ -40,6 +40,15 @@ beforeEach(() => {
 });
 
 describe('AccessGatesPanel', () => {
+  it('lista los eventos sin filtrar por "tiene fecha futura"', async () => {
+    // El default de getEvents es status:'active', que acá significa "tiene una
+    // función futura". Con ese default, un evento sin fechas cargadas todavía
+    // —el caso normal cuando se están configurando las puertas— no aparece.
+    render(<AccessGatesPanel />);
+    await waitFor(() => expect(eventsApi.getEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'all' })));
+  });
+
   it('no pide puertas hasta que se elige un evento', async () => {
     render(<AccessGatesPanel />);
     await waitFor(() => expect(eventsApi.getEvents).toHaveBeenCalled());

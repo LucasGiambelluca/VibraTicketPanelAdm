@@ -57,6 +57,18 @@ export default function StaffCard({ eventId }) {
   const [abierto, setAbierto] = useState(false);
   const [form] = Form.useForm();
 
+  // Las puertas se releen aparte de las fechas porque cambian solas: la tarjeta
+  // de al lado crea, edita y desactiva puertas, y esta tarjeta no se entera.
+  const cargarPuertas = useCallback(async () => {
+    if (!eventId) { setGates([]); return; }
+    try {
+      const r = await accessApi.listGates(eventId);
+      setGates(extractArray(r, 'gates'));
+    } catch (e) {
+      message.error('No se pudieron cargar las puertas del evento');
+    }
+  }, [eventId]);
+
   useEffect(() => {
     if (!eventId) {
       setShows([]);
@@ -67,16 +79,12 @@ export default function StaffCard({ eventId }) {
     let vigente = true;
     (async () => {
       try {
-        const [s, g] = await Promise.all([
-          accessApi.shows(eventId),
-          accessApi.listGates(eventId),
-        ]);
+        const s = await accessApi.shows(eventId);
         if (!vigente) return;
         // `GET /shows` devuelve un array pelado; los endpoints nuevos de access
         // devuelven `{ gates: [] }`. extractArray cubre las dos formas.
         const lista = extractArray(s, 'shows');
         setShows(lista);
-        setGates(extractArray(g, 'gates'));
         setShowId(lista.length ? String(lista[0].id) : null);
         setShowsListos(true);
       } catch (e) {
@@ -91,6 +99,8 @@ export default function StaffCard({ eventId }) {
     // del evento viejo pisando a las nuevas.
     return () => { vigente = false; };
   }, [eventId]);
+
+  useEffect(() => { cargarPuertas(); }, [cargarPuertas]);
 
   useEffect(() => {
     (async () => {
@@ -121,10 +131,15 @@ export default function StaffCard({ eventId }) {
   // Los campos se limpian una vez que el modal está montado: el Modal no
   // renderiza su contenido hasta la primera apertura, y tocar el Form antes deja
   // la instancia de useForm sin conectar a ningún Form.
+  //
+  // Y se releen las puertas: el flujo real es crear la puerta en la tarjeta de
+  // arriba y asignarle gente acá, en ese orden. Sin esta relectura la puerta
+  // recién creada no está en el desplegable y hay que recargar la página.
   useEffect(() => {
     if (!abierto) return;
     form.resetFields();
-  }, [abierto, form]);
+    cargarPuertas();
+  }, [abierto, form, cargarPuertas]);
 
   const asignar = async (values) => {
     try {

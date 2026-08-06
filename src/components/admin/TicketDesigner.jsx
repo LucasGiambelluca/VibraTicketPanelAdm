@@ -34,16 +34,12 @@ import {
   getCalibrationTicket,
 } from '../../services/ticketTemplateService';
 import { agentStatus, agentPrint } from '../../services/printAgentService';
-import { parseFgl, FONTS } from '../../utils/fglSimulator';
+import { parseFgl } from '../../utils/fglSimulator';
+import TicketCanvas from './TicketCanvas';
 
 const { Text } = Typography;
 const { TextArea } = Input;
 
-// Dimensiones físicas calibradas con test ticket (mapeo TuEntrada 2026-07-10):
-// PRINT LENGTH 1113 dots, área segura de filas 0–390. Deben coincidir con
-// STOCK en ApiTickets/services/fglConstants.js.
-const DOTS_W = 1113;
-const DOTS_H = 390;
 const DEFAULT_STUB_END_COL = 280;
 
 // Talón derecho (talón de control, sin QR, rotado 180°). Default idéntico al
@@ -57,36 +53,80 @@ const FIXTURE_OPTIONS = [
   { label: 'Textos largos', value: 'limite' },
 ];
 
-const SIZE_OPTIONS = [
-  { label: 'Grande', value: 'G' },
-  { label: 'Mediano', value: 'M' },
-  { label: 'Chico', value: 'C' },
+// Fuentes disponibles, ordenadas por TAMAÑO FÍSICO REAL. Ojo: no es el orden
+// de los números de fuente — F6 (34x48) es más grande que F3 (20x31), y F3 con
+// multiplicador 2 es más grande que F6. Los tokens y el orden coinciden con
+// SIZE_ORDER en ApiTickets/services/ticketLayout.js.
+// El alto en mm sale de dots / 200 dpi * 25.4.
+const FONT_OPTIONS = [
+  { label: 'Chica (1,9 mm)', value: 'F2' },
+  { label: 'Media (3,9 mm)', value: 'F3' },
+  { label: 'Grande (6,1 mm)', value: 'F6' },
+  { label: 'Enorme (7,9 mm)', value: 'F3x2' },
 ];
 
 // Metadata de las zonas editables (coincide con las claves válidas de
 // controllers/ticketTemplate.controller.js:configSchema en el backend).
-// La zona `qr` no tiene panel propio (se posiciona junto con el logo/talón).
-// `sizeDefault` es el tamaño que aplica el motor cuando la zona no trae
-// `size` explícito (services/fglTemplate.js:DEFAULT_CONFIG.zonas, verificado
-// ahí mismo — no en este archivo). codigo/emision/leyendas/pie siempre
-// imprimen en F1 fijo (sin escalera de tamaño), por eso no llevan control.
-// hasSize solo donde el motor de cajas tiene escalera con preset G/M/C
-// (ticketLayout.js LADDERS): evento, venue, fecha, precio. El resto imprime
-// con fuente fija de su caja (F2 mínimo — F1 prohibida como texto de lectura).
+// La zona `qr` tiene panel de posición (fila/columna) pero NO switch de
+// visibilidad (noToggle): el motor SIEMPRE imprime el QR — un toggle acá
+// sería un no-op engañoso.
+// `fontDefault` es la fuente que aplica el motor cuando la zona no trae `font`
+// explícito (services/ticketLayout.js:DEFAULT_FONTS, verificado ahí mismo — no
+// en este archivo). hasFont va en TODA zona de texto: desde el refactor del
+// motor de cajas la fuente elegida es el PRIMER escalón de la escalera de
+// cualquier zona, no solo de evento/venue/fecha/precio (antes el resto tenía
+// escalera hardcodeada y el control habría sido un no-op).
+// Sin control de fuente quedan las zonas que no son texto de lectura: `qr`
+// (gráfico), `logo` (bitmap) y `emision` (serial vertical de borde, único uso
+// permitido de F1 — ver regla 1 de ticketLayout.js).
 const ZONES = [
-  { key: 'evento', label: 'Nombre del evento', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'venue', label: 'Venue', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'direccion', label: 'Dirección', hasSize: false, hasCol: false },
-  { key: 'fecha', label: 'Fecha y hora', hasSize: true, hasCol: false, sizeDefault: 'G' },
-  { key: 'sector', label: 'Sector / entrada', hasSize: false, hasCol: false },
-  { key: 'tipo', label: 'Tipo de entrada', hasSize: false, hasCol: false },
-  { key: 'precio', label: 'Precio', hasSize: true, hasCol: false, sizeDefault: 'M' },
-  { key: 'leyendas', label: 'Leyendas', hasSize: false, hasCol: false },
-  { key: 'marca', label: 'Marca talón', hasSize: false, hasCol: true },
-  { key: 'codigo', label: 'Código talón', hasSize: false, hasCol: true },
-  { key: 'emision', label: 'Fecha emisión talón', hasSize: false, hasCol: true },
-  { key: 'logo', label: 'Logo', hasSize: false, hasCol: true },
+  { key: 'evento', label: 'Nombre del evento', hasFont: true, fontDefault: 'F3x2' },
+  { key: 'venue', label: 'Venue', hasFont: true, fontDefault: 'F3' },
+  { key: 'direccion', label: 'Dirección', hasFont: true, fontDefault: 'F2' },
+  { key: 'fecha', label: 'Fecha y hora', hasFont: true, fontDefault: 'F3x2' },
+  { key: 'sector', label: 'Sector / entrada', hasFont: true, fontDefault: 'F2' },
+  { key: 'tipo', label: 'Tipo de entrada', hasFont: true, fontDefault: 'F2' },
+  { key: 'precio', label: 'Precio', hasFont: true, fontDefault: 'F3' },
+  { key: 'leyendas', label: 'Leyendas', hasFont: true, fontDefault: 'F2' },
+  { key: 'qr', label: 'QR', hasFont: false, hasCol: true, noToggle: true },
+  { key: 'marca', label: 'Marca talón', hasFont: true, hasCol: true, fontDefault: 'F2' },
+  { key: 'codigo', label: 'Código talón', hasFont: true, hasCol: true, fontDefault: 'F2' },
+  { key: 'emision', label: 'Fecha emisión talón', hasFont: false, hasCol: true },
+  { key: 'logo', label: 'Logo', hasFont: false, hasCol: true },
 ];
+
+// La caja de las leyendas se llama `restriccion` en el motor (buildBoxes) pero
+// sus overrides viven bajo la clave de config `leyendas`. `boxes` viene crudo
+// del backend, así que hay que traducir antes de leerlo — sin esto el aviso de
+// degradación mostraría "la caja tiene 0" y el botón de ensanchar no haría nada.
+const BOX_OF_ZONE = { leyendas: 'restriccion' };
+
+// Límites físicos del cartón (ticketLayout.js: CANVAS/SAFE/buildBoxes.bodyEnd).
+const SAFE_COL_MAX = 1105;
+const MIN_BOX_W = 40; // igual que MIN_BOX_W del motor y el Joi de zonaSchema
+const GAP = 6; // aire mínimo que dejamos contra una perforación o una caja vecina
+
+// Rectángulo (top/bottom/left/right) de una caja del motor, cualquiera sea su
+// forma. Las cajas de texto traen row/maxHeight/colStart/colEnd; los seriales
+// verticales rowTop/rowBottom; el logo row/col/maxW/maxH. El QR no expone
+// ancho resuelto (depende del payload) => null: no participa del cálculo de
+// vecinos, y no hace falta (comparte fila solo con el talón A, ya acotado por
+// la perforación y por el corredor del serial).
+const rectOfBox = (b) => {
+  if (!b) return null;
+  if (Number.isFinite(b.colStart) && Number.isFinite(b.colEnd)) {
+    const top = Number.isFinite(b.row) ? b.row : b.rowTop;
+    const height = Number.isFinite(b.maxHeight)
+      ? b.maxHeight
+      : (Number.isFinite(b.rowBottom) && Number.isFinite(b.rowTop) ? b.rowBottom - b.rowTop : NaN);
+    if (!Number.isFinite(top) || !Number.isFinite(height)) return null;
+    return { top, bottom: top + height, left: b.colStart, right: b.colEnd };
+  }
+  if (Number.isFinite(b.col) && Number.isFinite(b.maxW) && Number.isFinite(b.row)) {
+    return { top: b.row, bottom: b.row + (b.maxH ?? 0), left: b.col, right: b.col + b.maxW };
+  }
+  return null;
+};
 
 // Tamaño default del logo cuando la zona no trae maxW/maxH explícito (dots,
 // ver services/fglTemplate.js:DEFAULT_CONFIG.zonas.logo). Topes 16-400 / 16-200
@@ -190,6 +230,18 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   const [fixture, setFixture] = useState('normal');
   const [elements, setElements] = useState([]);
   const [warnings, setWarnings] = useState([]);
+  // Métricas de fuente efectivas y estado por zona: vienen del backend en cada
+  // preview. No se hardcodean acá — antes vivían en fglSimulator.FONTS y se
+  // desincronizaban después de calibrar la impresora, así que el preview
+  // dibujaba con anchos viejos y mentía sobre el tamaño real.
+  const [metrics, setMetrics] = useState(null);
+  const [zoneState, setZoneState] = useState({});
+  const [boxes, setBoxes] = useState({});
+  // Zona seleccionada en el lienzo: define sobre CUÁL se dibujan los handles de
+  // resize y a cuál le pegan las flechas del teclado. Es una sola a la vez a
+  // propósito — trece zonas con handles dibujados a la vez taparían el ticket
+  // con controles y no se vería el diseño que se está editando.
+  const [selectedZone, setSelectedZone] = useState(null);
   // Errores del verificador de layout (solapes / cruces de perforación):
   // bloquean Guardar e Imprimir prueba (regla 5 del motor de cajas).
   const [layoutErrors, setLayoutErrors] = useState([]);
@@ -268,7 +320,15 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     if (!cfg) return undefined;
     const timer = setTimeout(() => {
       const seq = ++previewSeq.current;
-      const applyPreview = ({ fgl, elements: els, warnings: warns, errors }) => {
+      const applyPreview = ({
+        fgl,
+        elements: els,
+        warnings: warns,
+        errors,
+        metrics: mets,
+        zones,
+        boxes: bxs,
+      }) => {
         if (seq !== previewSeq.current) return; // respuesta vieja: ignorar
         if (Array.isArray(els)) {
           // Backend nuevo: elementos resueltos por el motor de cajas (misma
@@ -276,12 +336,21 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           setElements(els);
           setWarnings(warns || []);
           setLayoutErrors(errors || []);
+          // metrics/zones/boxes pueden faltar en un backend intermedio: se
+          // normalizan a null/{} en vez de dejar los de la respuesta anterior,
+          // que describirían otro layout.
+          setMetrics(mets || null);
+          setZoneState(zones || {});
+          setBoxes(bxs || {});
         } else {
           // Compat backend viejo: parsear el FGL con el simulador.
           const parsed = parseFgl(fgl);
           setElements(parsed.elements);
           setWarnings(parsed.warnings);
           setLayoutErrors([]);
+          setMetrics(null);
+          setZoneState({});
+          setBoxes({});
         }
       };
       previewTemplate(buildPayload(cfg, leyendasOn, leyendasText), fixture, logoFilename, eventId)
@@ -423,11 +492,17 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
       // Si la zona logo estaba oculta, un logo recién subido no se vería en el
       // ticket impreso hasta activarla a mano — la activamos de una vez y lo
       // avisamos, para que "subir logo" no sea un no-op silencioso.
-      // El logo recién subido SIEMPRE arranca centrado en el cuerpo (fila 140,
-      // col 455 = centro del cuerpo con la caja default de 200x100): pisa
-      // cualquier posición vieja guardada — "el logo se carga en cualquier
-      // lado" (bug 2026-07-10). Desde ahí el operador lo mueve si quiere.
-      setZona('logo', { visible: true, row: 140, col: 455 });
+      // El logo recién subido arranca centrado en el cuerpo SEGÚN SU CAJA
+      // actual (antes fila fija 140: con cajas altas tipo 300x150 pisaba
+      // leyendas/fecha y el verificador tiraba solapes por todos lados,
+      // bug 2026-07-13). Banda libre del cuerpo: filas ~75 (fin dirección)
+      // a ~240 (inicio leyendas); centro horizontal del cuerpo: col 560.
+      const zonaLogo = (cfg.zonas || {}).logo || {};
+      const maxW = zonaLogo.maxW ?? LOGO_MAXW_DEFAULT;
+      const maxH = zonaLogo.maxH ?? LOGO_MAXH_DEFAULT;
+      const row = Math.max(75, Math.round((315 - maxH) / 2));
+      const col = Math.max(310, Math.round(560 - maxW / 2));
+      setZona('logo', { visible: true, row, col });
       message.success('Logo subido y centrado — movelo desde la zona Logo si hace falta');
     } catch (err) {
       const detail = apiErrorDetail(err);
@@ -484,6 +559,12 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   }
 
   const stubEndCol = cfg.stubEndCol ?? DEFAULT_STUB_END_COL;
+  // Talón derecho: se derivan acá arriba (y no junto a su panel, más abajo)
+  // porque el cálculo de cuánto se puede ensanchar una caja necesita saber
+  // dónde cae la segunda perforación.
+  const talon2 = cfg.talon2 || {};
+  const talon2Visible = talon2.visible === true; // default false, retrocompatible
+  const talon2StartCol = talon2.startCol ?? TALON2_START_COL_DEFAULT;
 
   const printerReady = agentState.ok && agentState.printerReachable;
   const printDisabledReason = agentState.checking
@@ -502,6 +583,124 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
     return layoutErrors.filter((e) => names.some((n) => e.includes(`"${n}"`) || e.startsWith(`${n}:`)));
   };
 
+  // --- Ensanchar la caja de una zona degradada -------------------------------
+  // Ensanchar a ciegas hasta `anchoNecesario` es una trampa: el verificador del
+  // backend rechaza solapes y cruces de perforación, así que un botón "útil"
+  // podría dejar el diseño en error bloqueante (Guardar/Imprimir deshabilitados)
+  // justo después de tocarlo. Por eso se calcula ANTES hasta dónde se puede
+  // llegar sin romper nada, y el botón solo se ofrece habilitado si con ese
+  // margen la fuente pedida entra de verdad.
+  //   - límite físico: la perforación de la derecha (talón A => perf1; cuerpo =>
+  //     perf2-8, el mismo bodyEnd que usa buildBoxes) y el área segura.
+  //   - límite por vecinos: la caja que comparte filas y arranca más a la
+  //     derecha (incluye el corredor del serial vertical y el logo).
+  const boxOfZone = (zoneKey) => boxes[BOX_OF_ZONE[zoneKey] || zoneKey];
+
+  // Origen (fila/columna actual) de cada zona arrastrable, para que el lienzo
+  // sepa desde DÓNDE mover. Se lee de `boxes`, que es lo que el motor resolvió
+  // — no del elemento agarrado: una zona puede tener varios elementos (`codigo`
+  // se parte en dos líneas) y tomar el origen del segundo escribiría la config
+  // una línea más abajo de donde está la zona.
+  //
+  // La traducción de clave es obligatoria: `handleZoneChange` habla en claves
+  // de CONFIG (`leyendas`) y `boxes` viene indexado por nombre de caja del
+  // MOTOR (`restriccion`). Leer la clave cruda daría undefined, el arrastre
+  // arrancaría desde {row:0, col:0} y el elemento se teletransportaría a la
+  // esquina en el primer movimiento.
+  // `ancho` sale SOLO de las cajas de texto, las únicas que tienen dos bordes
+  // propios (colStart/colEnd). El QR y el logo son puntos posicionados, no
+  // cajas: el logo tiene maxW, pero eso es un TAMAÑO de render, no un borde
+  // derecho — escribirlo como colEnd lo pelearía con el slider de ancho. Sin
+  // `ancho` el arrastre escribe solo {row, col}, que para un punto es la
+  // traslación completa igual.
+  const originOfZone = (zoneKey) => {
+    const b = boxOfZone(zoneKey);
+    if (!b) return null;
+    const esCajaDeTexto = Number.isFinite(b.colStart) && Number.isFinite(b.colEnd);
+    const r = rectOfBox(b);
+    if (r) {
+      return esCajaDeTexto
+        ? { row: r.top, col: r.left, ancho: b.colEnd - b.colStart }
+        : { row: r.top, col: r.left };
+    }
+    // El QR no expone ancho resuelto (depende del payload) y rectOfBox lo
+    // descarta, pero su fila/columna sí están y es todo lo que el arrastre pide.
+    if (Number.isFinite(b.row) && Number.isFinite(b.col)) return { row: b.row, col: b.col };
+    return null;
+  };
+
+  const zoneOrigins = {};
+  for (const zone of ZONES) {
+    const o = originOfZone(zone.key);
+    if (o) zoneOrigins[zone.key] = o;
+  }
+
+  // El lienzo avisa que una zona se movió. Escribimos la config y el efecto de
+  // preview (con su debounce) pide el layout real: la posición definitiva la
+  // decide siempre el backend.
+  const handleZoneChange = (zoneId, cambios) => {
+    setZona(zoneId, cambios);
+  };
+
+  const anchoDisponible = (zoneKey) => {
+    const propio = rectOfBox(boxOfZone(zoneKey));
+    if (!propio) return null;
+    const limiteFisico = propio.left < stubEndCol
+      ? stubEndCol - GAP
+      : Math.min(SAFE_COL_MAX, talon2StartCol - 8);
+    let limite = limiteFisico;
+    let vecino = null;
+    const propioKey = BOX_OF_ZONE[zoneKey] || zoneKey;
+    for (const [k, b] of Object.entries(boxes)) {
+      if (k === propioKey) continue;
+      const r = rectOfBox(b);
+      if (!r || r.left <= propio.left) continue;
+      if (r.top >= propio.bottom || r.bottom <= propio.top) continue; // no comparten filas
+      if (r.left - GAP < limite) {
+        limite = r.left - GAP;
+        vecino = k;
+      }
+    }
+    return { colStart: propio.left, limite, limiteFisico, vecino };
+  };
+
+  // Ensancha la caja de una zona hasta que su texto entre en la fuente pedida.
+  // anchoNecesario ya viene medido sobre el texto ORIGINAL (no el truncado), así
+  // que ensanchar a ese valor alcanza de verdad — un botón que promete y no
+  // cumple sería peor que no tener botón.
+  const ensancharCaja = (zoneKey) => {
+    const necesario = zoneState[zoneKey]?.anchoNecesario;
+    const disp = anchoDisponible(zoneKey);
+    if (!necesario || !disp) return;
+    const colEnd = Math.min(disp.limite, disp.colStart + necesario + 4);
+    // Guarda redundante (el botón ya se deshabilita en estos casos), pero barata:
+    // una caja de menos de 40 dots la rechaza el Joi del backend y la descarta el
+    // motor, así que nunca la escribimos.
+    if (colEnd - disp.colStart < MIN_BOX_W) return;
+    setZona(zoneKey, { col: disp.colStart, colEnd });
+  };
+
+  // Qué puede hacer el botón de ensanchar en esta zona, y si no puede, por qué.
+  const estadoEnsanche = (zoneKey) => {
+    const necesario = zoneState[zoneKey]?.anchoNecesario;
+    const disp = anchoDisponible(zoneKey);
+    if (!necesario || !disp) return { puede: false, motivo: null };
+    const pedido = necesario + 4;
+    if (pedido > disp.limiteFisico - disp.colStart) {
+      return {
+        puede: false,
+        motivo: 'No entra ni a lo ancho del ticket — elegí una fuente más chica o acortá el texto.',
+      };
+    }
+    if (pedido > disp.limite - disp.colStart) {
+      return {
+        puede: false,
+        motivo: `No se puede ensanchar sin pisar "${disp.vecino}" — mové esa zona, o elegí una fuente más chica.`,
+      };
+    }
+    return { puede: true, motivo: null };
+  };
+
   const panelItems = ZONES.map((zone) => {
     const zona = (cfg.zonas || {})[zone.key] || {};
     const visible = zona.visible !== false;
@@ -516,7 +715,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           </Tooltip>
         )
         : zone.label,
-      extra: (
+      extra: zone.noToggle ? null : (
         // stopPropagation en ambos handlers: el click en el Switch no debe
         // abrir/cerrar el panel del Collapse.
         <span onClick={(e) => e.stopPropagation()}>
@@ -533,7 +732,7 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
           <InputNumber
             addonBefore="Fila"
             min={0}
-            max={389}
+            max={379}
             style={{ width: '100%' }}
             value={zona.row}
             onChange={(v) => setZona(zone.key, { row: v ?? undefined })}
@@ -548,17 +747,49 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
               onChange={(v) => setZona(zone.key, { col: v ?? undefined })}
             />
           )}
-          {zone.hasSize && (
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Tamaño
-              </Text>
+          {zone.hasFont && (
+            <div style={{ marginBottom: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Tamaño de letra</Text>
               <Segmented
                 block
-                options={SIZE_OPTIONS}
-                value={zona.size ?? zone.sizeDefault}
-                onChange={(v) => setZona(zone.key, { size: v })}
+                options={FONT_OPTIONS}
+                value={zona.font || zone.fontDefault}
+                onChange={(v) => setZona(zone.key, { font: v })}
               />
+              {zoneState[zone.key]?.degradado && (() => {
+                const est = estadoEnsanche(zone.key);
+                const caja = rectOfBox(boxOfZone(zone.key));
+                return (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 8 }}
+                    message={`Entró en ${zoneState[zone.key].fontUsado}, no en ${zoneState[zone.key].fontPedido}`}
+                    description={(
+                      <Space direction="vertical" size={4}>
+                        <Text style={{ fontSize: 12 }}>
+                          El texto necesita {zoneState[zone.key].anchoNecesario} dots y la caja tiene{' '}
+                          {(caja?.right ?? 0) - (caja?.left ?? 0)}.
+                        </Text>
+                        {est.puede ? (
+                          <Button size="small" onClick={() => ensancharCaja(zone.key)}>
+                            Ensanchar la caja
+                          </Button>
+                        ) : (
+                          <>
+                            <Button size="small" disabled>
+                              Ensanchar la caja
+                            </Button>
+                            {est.motivo && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>{est.motivo}</Text>
+                            )}
+                          </>
+                        )}
+                      </Space>
+                    )}
+                  />
+                );
+              })()}
             </div>
           )}
           {zone.key === 'leyendas' && (
@@ -618,14 +849,12 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
   });
 
   // Talón derecho (segundo talón de control, sin QR, rotado 180° — feature
-  // 2026-07-10): no es una "zona" (no tiene row/col/size individuales, el
+  // 2026-07-10): no es una "zona" (no tiene row/col/font individuales, el
   // layout interno de sus 6 campos es fijo en el backend), por eso vive
   // aparte de ZONES/panelItems.map en lugar de sumarse a la lista de zonas.
   // `talon2` es una clave de nivel superior de cfg (como stubEndCol), no una
-  // entrada de cfg.zonas.
-  const talon2 = cfg.talon2 || {};
-  const talon2Visible = talon2.visible === true; // default false, retrocompatible
-  const talon2StartCol = talon2.startCol ?? TALON2_START_COL_DEFAULT;
+  // entrada de cfg.zonas. (talon2/talon2Visible/talon2StartCol se derivan más
+  // arriba: el cálculo de ensanche de cajas también los necesita.)
   panelItems.push({
     key: 'talon2',
     label: 'Talón derecho',
@@ -761,329 +990,15 @@ export default function TicketDesigner({ eventId = null, onSaved }) {
             elements={elements}
             stubEndCol={stubEndCol}
             talon2StartCol={talon2Visible ? talon2StartCol : null}
+            metrics={metrics}
+            boxes={boxes}
+            zoneOrigins={zoneOrigins}
+            onZoneChange={handleZoneChange}
+            selectedZone={selectedZone}
+            onSelectZone={setSelectedZone}
           />
         </Space>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// TicketCanvas: dibuja los elementos de parseFgl() sobre un lienzo de
-// 1050x384 "dots" (1 dot = 1px) escalado con transform para caber en el
-// ancho disponible. Puramente presentacional, sin llamadas a la API.
-// ---------------------------------------------------------------------------
-function TicketCanvas({ elements, stubEndCol, talon2StartCol }) {
-  const containerRef = useRef(null);
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return undefined;
-    const measure = () => setWidth(el.offsetWidth);
-    measure();
-    if (typeof ResizeObserver !== 'undefined') {
-      const ro = new ResizeObserver(measure);
-      ro.observe(el);
-      return () => ro.disconnect();
-    }
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, []);
-
-  const k = width > 0 ? width / DOTS_W : 0;
-  const heightPx = DOTS_H * k;
-
-  return (
-    <div ref={containerRef} style={{ width: '100%' }}>
-      <div style={{ width: '100%', height: heightPx, overflow: 'hidden' }}>
-        <div
-          style={{
-            width: DOTS_W,
-            height: DOTS_H,
-            transform: `scale(${k})`,
-            transformOrigin: '0 0',
-            position: 'relative',
-            background: '#FBFAF6',
-            borderRadius: 3,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
-            overflow: 'hidden',
-            color: '#191919',
-          }}
-        >
-          {elements.map((el, idx) => (
-            <TicketElement key={idx} el={el} />
-          ))}
-
-          {/* Línea de perforación del talón */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: stubEndCol,
-              width: 0,
-              height: DOTS_H,
-              borderLeft: '2px dashed #E4574B',
-              pointerEvents: 'none',
-            }}
-          />
-          {/* Línea de perforación 2 (talón de control derecho, si está activo) */}
-          {Number.isFinite(talon2StartCol) && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: talon2StartCol,
-                width: 0,
-                height: DOTS_H,
-                borderLeft: '2px dashed #E4574B',
-                pointerEvents: 'none',
-              }}
-            />
-          )}
-          {/* Tinte del área del talón */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: stubEndCol,
-              height: DOTS_H,
-              background: 'rgba(0,122,255,0.05)',
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TicketElement({ el }) {
-  switch (el.type) {
-    case 'text': {
-      const [boxW, charH] = FONTS[el.font] || FONTS.F1;
-      const hw = el.hw || [1, 1];
-      const fontSize = charH * hw[0];
-      const letterSpacing = boxW * hw[1] - 0.6 * fontSize;
-      const style = {
-        position: 'absolute',
-        fontFamily: '"Courier New", Courier, monospace',
-        fontWeight: 600,
-        whiteSpace: 'pre',
-        fontSize,
-        lineHeight: `${fontSize}px`,
-        letterSpacing,
-        color: '#191919',
-      };
-      if (el.rotation === 180) {
-        // Talón derecho (<RU>, fglSimulator.js): (el.row, el.col) es el punto
-        // de anclaje del comando FGL, que para RU es el extremo DERECHO/ABAJO
-        // de la corrida en el sistema de coordenadas SIN rotar (el texto
-        // "construye hacia arriba", cheatsheet §4) — o sea, la esquina
-        // inferior-derecha de la caja, no la superior-izquierda como en NR.
-        // Rotar 180° alrededor del centro de esa caja no mueve su bounding
-        // box (sigue ocupando el mismo rectángulo), solo voltea el contenido:
-        // exactamente el efecto visual de imprimir con <RU>, sin necesitar
-        // fidelidad física perfecta (alcanza con mostrar el talón girado en
-        // el lugar correcto).
-        const width = el.text.length * boxW * hw[1];
-        style.top = el.row - fontSize;
-        style.left = el.col - width;
-        style.width = width;
-        style.transform = 'rotate(180deg)';
-        style.transformOrigin = 'center';
-      } else if (el.rotation === 90 || el.rotation === 270) {
-        // <RR> (90°: texto corre hacia abajo) / <RL> (270°: hacia arriba,
-        // emisión vertical del talón). Se dibuja la corrida horizontal y se
-        // rota alrededor del punto de anclaje (top-left = el <RC> del FGL):
-        // con -90° el texto queda extendiéndose hacia arriba desde el
-        // anclaje, con +90° hacia abajo — misma geometría que la impresora.
-        style.top = el.row;
-        style.left = el.col;
-        style.transform = el.rotation === 90 ? 'rotate(90deg)' : 'rotate(-90deg)';
-        style.transformOrigin = '0 0';
-      } else {
-        style.top = el.row;
-        style.left = el.col;
-      }
-      return <div style={style}>{el.text}</div>;
-    }
-    case 'line': {
-      const size = el.vertical
-        ? { width: el.thickness, height: el.length }
-        : { width: el.length, height: el.thickness };
-      return (
-        <div
-          style={{
-            position: 'absolute',
-            top: el.row,
-            left: el.col,
-            background: '#191919',
-            ...size,
-          }}
-        />
-      );
-    }
-    case 'box':
-      return (
-        <div
-          style={{
-            position: 'absolute',
-            top: el.row,
-            left: el.col,
-            width: el.width,
-            height: el.height,
-            border: `${el.thickness}px solid #191919`,
-            boxSizing: 'border-box',
-          }}
-        />
-      );
-    case 'qr':
-      return <QrCanvas el={el} />;
-    case 'graphic':
-      return <GraphicCanvas el={el} />;
-    default:
-      return null;
-  }
-}
-
-// Hash determinístico (FNV-1a + mezcla estilo xorshift) para generar un
-// patrón "falso" de módulos de QR a partir del payload, solo para el
-// preview visual — nunca se usa para generar el QR real (eso lo hace la
-// impresora con el comando <QR#>{payload}).
-function fnv1a(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-function hashCell(seed, r, c) {
-  let h = seed ^ Math.imul(r + 1, 374761393) ^ Math.imul(c + 1, 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967295;
-}
-
-function QrCanvas({ el }) {
-  const { row, col, pointSize, modules, payload } = el;
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    canvas.width = modules;
-    canvas.height = modules;
-    let ctx = null;
-    try {
-      ctx = canvas.getContext('2d');
-    } catch {
-      ctx = null;
-    }
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, modules, modules);
-    ctx.fillStyle = '#FBFAF6';
-    ctx.fillRect(0, 0, modules, modules);
-    ctx.fillStyle = '#191919';
-
-    const seed = fnv1a(payload || '');
-    // Los 3 "ojos" (finder patterns) de un QR real: anillo 7x7 con centro 3x3,
-    // rodeados de un margen blanco de 1 módulo.
-    const finders = [
-      [0, 0],
-      [0, modules - 7],
-      [modules - 7, 0],
-    ];
-
-    for (let r = 0; r < modules; r++) {
-      for (let c = 0; c < modules; c++) {
-        let dark = null;
-        for (const [fr, fc] of finders) {
-          const rr = r - fr;
-          const cc = c - fc;
-          if (rr >= -1 && rr <= 7 && cc >= -1 && cc <= 7) {
-            if (rr < 0 || rr > 6 || cc < 0 || cc > 6) {
-              dark = false; // margen de aclarado alrededor del ojo
-            } else {
-              const isBorder = rr === 0 || rr === 6 || cc === 0 || cc === 6;
-              const isCenter = rr >= 2 && rr <= 4 && cc >= 2 && cc <= 4;
-              dark = isBorder || isCenter;
-            }
-            break;
-          }
-        }
-        if (dark === null) {
-          dark = hashCell(seed, r, c) > 0.52;
-        }
-        if (dark) ctx.fillRect(c, r, 1, 1);
-      }
-    }
-  }, [modules, payload]);
-
-  const sizePx = modules * pointSize;
-  return (
-    <canvas
-      ref={ref}
-      style={{
-        position: 'absolute',
-        top: row,
-        left: col,
-        width: sizePx,
-        height: sizePx,
-        imageRendering: 'pixelated',
-      }}
-    />
-  );
-}
-
-// Un <canvas> por elemento `graphic`: cada elemento es UNA fila del logo
-// (altura 1 dot). Cada par de caracteres hex = 1 byte = 8 dots horizontales,
-// bit más significativo primero (igual que el formato <g#>HEX de BOCA).
-function GraphicCanvas({ el }) {
-  const { row, col, hex } = el;
-  const ref = useRef(null);
-  const width = Math.max(1, hex.length * 4);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    canvas.width = width;
-    canvas.height = 1;
-    let ctx = null;
-    try {
-      ctx = canvas.getContext('2d');
-    } catch {
-      ctx = null;
-    }
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, width, 1);
-    ctx.fillStyle = '#191919';
-    const nBytes = Math.floor(hex.length / 2);
-    for (let b = 0; b < nBytes; b++) {
-      const byte = parseInt(hex.substr(b * 2, 2), 16);
-      if (Number.isNaN(byte)) continue;
-      for (let bit = 0; bit < 8; bit++) {
-        if (byte & (0x80 >> bit)) ctx.fillRect(b * 8 + bit, 0, 1, 1);
-      }
-    }
-  }, [hex, width]);
-
-  return (
-    <canvas
-      ref={ref}
-      style={{
-        position: 'absolute',
-        top: row,
-        left: col,
-        width,
-        height: 1,
-        imageRendering: 'pixelated',
-      }}
-    />
   );
 }

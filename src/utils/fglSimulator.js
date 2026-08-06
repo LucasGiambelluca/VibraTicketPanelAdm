@@ -9,9 +9,12 @@
 // para comandos que no se simulan (rotaciones, comandos desconocidos, etc).
 
 // Métricas de fuentes en dots de impresora: [boxWidth, charHeight].
-// F1/F2/F3/F6 sincronizadas con FONT_METRICS del motor de cajas
-// (ApiTickets/services/ticketLayout.js) — si la calibración física (Fase 5)
-// corrige aquellas, corregir estas igual para que el preview no mienta.
+//
+// DEPRECADO como fuente de verdad del diseñador: ese camino ahora usa las
+// `metrics` que devuelve /preview, que ya traen la calibración física aplicada
+// (ApiTickets/services/printerCalibration.js). Esta tabla queda solo para
+// parseFgl(), el parser de respaldo que se usa cuando el backend devuelve FGL
+// crudo sin elementos resueltos.
 export const FONTS = {
   F1: [8, 9],
   F2: [12, 15],

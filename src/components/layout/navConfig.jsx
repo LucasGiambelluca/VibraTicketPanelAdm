@@ -14,6 +14,7 @@ import {
   Activity,
   Settings,
   Sparkles,
+  DoorOpen,
 } from 'lucide-react';
 
 // keys must match AdminDashboard's selectedKey routing
@@ -42,6 +43,9 @@ export const NAV_SECTIONS = [
     label: 'Operaciones',
     items: [
       { key: 'reports', label: 'Reportes', icon: LineChart },
+      // Puertas del evento y personal de cada fecha. Va en Operaciones y no en
+      // General porque se usa el día del show, no al cargar el evento.
+      { key: 'access-gates', label: 'Puertas', icon: DoorOpen },
       { key: 'users', label: 'Usuarios', icon: Users },
       { key: 'health', label: 'Salud', icon: Activity },
       { key: 'mercadopago', label: 'MercadoPago', icon: Sparkles },

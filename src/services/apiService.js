@@ -171,6 +171,64 @@ export const adminUsersApi = {
 };
 
 // ============================================
+// ACCESS API - Control de accesos (puertas y personal)
+// ============================================
+/**
+ * Control de accesos: puertas y personal de puerta.
+ *
+ * Los sectores salen de un endpoint y no se tipean: `gate_rules.sector` se
+ * compara como texto exacto contra el sector del ticket, y un nombre mal
+ * escrito no falla al guardar — falla en la puerta.
+ *
+ * `listGates` y `shows` cortan el llamado si no hay id, en vez de mandarlo.
+ * Son los dos únicos métodos que pasan el id como query param: axios borra el
+ * param cuando vale undefined, el backend lo lee como falsy y devuelve las
+ * puertas de TODOS los eventos y todos los shows del sistema. Una pantalla que
+ * cargue antes de que el usuario elija evento mostraría todo, en silencio y de
+ * forma perfectamente plausible. Los demás métodos llevan el id en el path, así
+ * que sin id fallan solos y a los gritos: no necesitan guarda.
+ *
+ * `shows` y `ticketTypes` duplican a propósito `showsApi.listShows` y
+ * `eventsApi.getEventTicketTypes`, para que las tres pantallas de puertas
+ * importen un solo objeto en vez de tres.
+ */
+export const accessApi = {
+  listGates: (eventId) => {
+    if (!eventId) return Promise.reject(new Error('accessApi.listGates requiere eventId'));
+    return apiClient.get(`${API_BASE}/access/gates`, { params: { eventId } });
+  },
+
+  createGate: (data) =>
+    apiClient.post(`${API_BASE}/access/gates`, data),
+
+  updateGate: (gateId, data) =>
+    apiClient.put(`${API_BASE}/access/gates/${gateId}`, data),
+
+  deleteGate: (gateId) =>
+    apiClient.delete(`${API_BASE}/access/gates/${gateId}`),
+
+  eventSectors: (eventId) =>
+    apiClient.get(`${API_BASE}/access/events/${eventId}/sectors`),
+
+  listAssignments: (showId) =>
+    apiClient.get(`${API_BASE}/access/shows/${showId}/assignments`),
+
+  createAssignment: (data) =>
+    apiClient.post(`${API_BASE}/access/assignments`, data),
+
+  deleteAssignment: (assignmentId) =>
+    apiClient.delete(`${API_BASE}/access/assignments/${assignmentId}`),
+
+  ticketTypes: (eventId) =>
+    apiClient.get(`${API_BASE}/events/${eventId}/ticket-types`),
+
+  shows: (eventId) => {
+    if (!eventId) return Promise.reject(new Error('accessApi.shows requiere eventId'));
+    return apiClient.get(`${API_BASE}/shows`, { params: { eventId } });
+  },
+};
+
+// ============================================
 // ADMIN PAYMENTS API - Monitor de Pagos (Solo ADMIN)
 // ============================================
 export const adminPaymentsApi = {
@@ -1247,5 +1305,6 @@ export default {
   testPayments: testPaymentsApi,
   homepageBanners: homepageBannersApi,
   boxoffice: boxofficeApi,
+  access: accessApi,
   utils: apiUtils
 };

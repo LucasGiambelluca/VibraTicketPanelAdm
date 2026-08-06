@@ -298,7 +298,24 @@ describe('TicketDesigner', () => {
     await waitFor(() => expect(printButton).toBeDisabled());
   });
 
-  it('cambiar el tamaño de "evento" a Chico viaja en el próximo preview', async () => {
+  it('el selector de fuente ofrece las 4 fuentes y arranca en el default de la zona', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Nombre del evento')).toBeInTheDocument());
+
+    await user.click(screen.getByText('Nombre del evento'));
+    const panel = screen.getByText('Nombre del evento').closest('.ant-collapse-item');
+
+    expect(within(panel).getByText('Tamaño de letra')).toBeInTheDocument();
+    for (const label of ['Chica (1,9 mm)', 'Media (3,9 mm)', 'Grande (6,1 mm)', 'Enorme (7,9 mm)']) {
+      expect(within(panel).getByText(label)).toBeInTheDocument();
+    }
+    // Sin `font` en el config, el control muestra el default del motor para
+    // evento (DEFAULT_FONTS.evento = 'F3x2' => "Enorme").
+    expect(within(panel).getByRole('radio', { name: 'Enorme (7,9 mm)' })).toBeChecked();
+  });
+
+  it('cambiar la fuente de "evento" viaja como `font` (no `size`) en el próximo preview', async () => {
     const user = userEvent.setup();
     render(<TicketDesigner />);
     await waitFor(() => expect(screen.getByText('Nombre del evento')).toBeInTheDocument());
@@ -309,13 +326,16 @@ describe('TicketDesigner', () => {
     const panel = screen.getByText('Nombre del evento').closest('.ant-collapse-item');
     // El <input type="radio"> de rc-segmented tiene pointer-events:none (solo
     // visualmente accesible); el click real cae en el <label> que lo envuelve,
-    // que es lo que arrastra el texto de la opción ("Chico").
-    await user.click(within(panel).getByText('Chico'));
+    // que es lo que arrastra el texto de la opción.
+    await user.click(within(panel).getByText('Media (3,9 mm)'));
 
     await waitFor(
       () => {
         const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
-        expect(config.zonas.evento.size).toBe('C');
+        expect(config.zonas.evento.font).toBe('F3');
+        // `size` es una clave que el Joi del backend ya rechaza (unknown(false)):
+        // si el panel la escribiera, guardar devolvería 400.
+        expect(config.zonas.evento.size).toBeUndefined();
       },
       { timeout: 3000 }
     );
@@ -434,18 +454,152 @@ describe('TicketDesigner', () => {
     expect(screen.getByText('$ 25.000,00')).toBeInTheDocument();
   });
 
-  it('las zonas codigo/emision/leyendas/pie no tienen control de tamaño (F1 fijo, sin escalera)', async () => {
+  it('las zonas que no son texto de lectura (QR, emisión, logo) no tienen selector de fuente', async () => {
     const user = userEvent.setup();
     render(<TicketDesigner />);
     await waitFor(() => expect(screen.getByText('Precio')).toBeInTheDocument());
 
-    for (const label of ['Código talón', 'Fecha emisión talón', 'Leyendas', 'Tipo de entrada']) {
+    for (const label of ['QR', 'Fecha emisión talón', 'Logo']) {
       await user.click(screen.getByText(label));
+      const panel = screen.getByText(label).closest('.ant-collapse-item');
+      expect(within(panel).queryByText('Tamaño de letra')).not.toBeInTheDocument();
     }
+  });
 
-    // Ninguna de estas zonas usa la escalera de tamaño del motor (F1 fijo):
-    // no debe renderizarse el selector "Tamaño" en ninguno de sus paneles.
-    expect(screen.queryByText('Tamaño')).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Chico' })).not.toBeInTheDocument();
+  it('las zonas de texto que antes no tenían control (código, leyendas, tipo) ahora eligen fuente', async () => {
+    const user = userEvent.setup();
+    render(<TicketDesigner />);
+    await waitFor(() => expect(screen.getByText('Precio')).toBeInTheDocument());
+
+    for (const label of ['Código talón', 'Leyendas', 'Tipo de entrada']) {
+      await user.click(screen.getByText(label));
+      const panel = screen.getByText(label).closest('.ant-collapse-item');
+      expect(within(panel).getByText('Tamaño de letra')).toBeInTheDocument();
+      // Todas defaultean a F2 ("Chica") según DEFAULT_FONTS del motor.
+      expect(within(panel).getByRole('radio', { name: 'Chica (1,9 mm)' })).toBeChecked();
+    }
+  });
+
+  // --- Aviso de degradación + "Ensanchar la caja" ----------------------------
+  // El backend nuevo devuelve `zones` (fuente pedida vs usada) y `boxes` (cajas
+  // resueltas) en cada preview; estos tests los mockean para ejercitar el aviso.
+  const previewConEstado = (zones, boxes) => ({
+    fgl: '<RC10,10><F3>X\n<p>',
+    elements: [],
+    warnings: [],
+    errors: [],
+    metrics: null,
+    zones,
+    boxes,
+  });
+  const EVENTO_BOX = { evento: { row: 104, maxHeight: 70, colStart: 310, colEnd: 600 } };
+
+  const abrirEvento = async (user) => {
+    await waitFor(() => expect(ticketTemplateService.previewTemplate).toHaveBeenCalled());
+    await user.click(screen.getByText('Nombre del evento'));
+    return screen.getByText('Nombre del evento').closest('.ant-collapse-item');
+  };
+
+  it('el aviso de degradación aparece solo cuando la zona degradó', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.previewTemplate.mockResolvedValue(
+      previewConEstado(
+        { evento: { fontPedido: 'F3x2', fontUsado: 'F3x2', degradado: false, anchoNecesario: 200 } },
+        EVENTO_BOX
+      )
+    );
+
+    render(<TicketDesigner />);
+    const panel = await abrirEvento(user);
+    await waitFor(() => expect(within(panel).getByText('Tamaño de letra')).toBeInTheDocument());
+    expect(within(panel).queryByText(/no en/)).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Ensanchar la caja' })).not.toBeInTheDocument();
+  });
+
+  it('el aviso de degradación dice qué fuente entró y cuánto ancho falta', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.previewTemplate.mockResolvedValue(
+      previewConEstado(
+        { evento: { fontPedido: 'F3x2', fontUsado: 'F3', degradado: true, anchoNecesario: 400 } },
+        EVENTO_BOX
+      )
+    );
+
+    render(<TicketDesigner />);
+    const panel = await abrirEvento(user);
+
+    await waitFor(() =>
+      expect(within(panel).getByText('Entró en F3, no en F3x2')).toBeInTheDocument()
+    );
+    // 600 - 310 = 290 dots de caja actual.
+    expect(within(panel).getByText(/necesita 400 dots y la caja tiene\s+290/)).toBeInTheDocument();
+  });
+
+  it('"Ensanchar la caja" escribe col/colEnd hasta que el texto entre en la fuente pedida', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.previewTemplate.mockResolvedValue(
+      previewConEstado(
+        { evento: { fontPedido: 'F3x2', fontUsado: 'F3', degradado: true, anchoNecesario: 400 } },
+        EVENTO_BOX
+      )
+    );
+
+    render(<TicketDesigner />);
+    const panel = await abrirEvento(user);
+    const boton = await within(panel).findByRole('button', { name: 'Ensanchar la caja' });
+    expect(boton).not.toBeDisabled();
+
+    await user.click(boton);
+
+    await waitFor(
+      () => {
+        const [config] = vi.mocked(ticketTemplateService.previewTemplate).mock.calls.at(-1);
+        // colStart original + anchoNecesario + 4 dots de aire.
+        expect(config.zonas.evento).toEqual({ col: 310, colEnd: 714 });
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  it('si el texto no entra ni a lo ancho del ticket, el botón queda deshabilitado y explica por qué', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.previewTemplate.mockResolvedValue(
+      previewConEstado(
+        // 76 chars en F3x2 = 3040 dots sobre un cartón de 1113.
+        { evento: { fontPedido: 'F3x2', fontUsado: 'F2', degradado: true, anchoNecesario: 3040 } },
+        EVENTO_BOX
+      )
+    );
+
+    render(<TicketDesigner />);
+    const panel = await abrirEvento(user);
+
+    const boton = await within(panel).findByRole('button', { name: 'Ensanchar la caja' });
+    expect(boton).toBeDisabled();
+    expect(
+      within(panel).getByText(/No entra ni a lo ancho del ticket/)
+    ).toBeInTheDocument();
+  });
+
+  it('si ensanchar pisaría una caja vecina, el botón se deshabilita y nombra al vecino', async () => {
+    const user = userEvent.setup();
+    ticketTemplateService.previewTemplate.mockResolvedValue(
+      previewConEstado(
+        { evento: { fontPedido: 'F3x2', fontUsado: 'F3', degradado: true, anchoNecesario: 400 } },
+        {
+          ...EVENTO_BOX,
+          // El logo comparte filas con evento y arranca en col 500: ensanchar
+          // hasta 714 lo pisaría y el verificador del backend daría error.
+          logo: { row: 110, col: 500, maxW: 200, maxH: 60 },
+        }
+      )
+    );
+
+    render(<TicketDesigner />);
+    const panel = await abrirEvento(user);
+
+    const boton = await within(panel).findByRole('button', { name: 'Ensanchar la caja' });
+    expect(boton).toBeDisabled();
+    expect(within(panel).getByText(/sin pisar "logo"/)).toBeInTheDocument();
   });
 });

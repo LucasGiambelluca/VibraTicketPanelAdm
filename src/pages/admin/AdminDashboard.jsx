@@ -23,7 +23,8 @@ import {
   ReloadOutlined,
   DollarOutlined,
   MoreOutlined,
-  PrinterOutlined
+  PrinterOutlined,
+  SafetyOutlined
 } from '@ant-design/icons';
 import { sectionErrorLine } from '../../lib/sectionErrors';
 import CreateEvent from '../../components/CreateEvent';
@@ -42,6 +43,7 @@ import SettingsAdmin from './SettingsAdmin';
 import DiscountCodes from './DiscountCodes';
 import PaymentMonitor from './PaymentMonitor';
 import ProducersPanel from './ProducersPanel';
+import AccessGatesPanel from './AccessGatesPanel';
 import TicketDesigner from '../../components/admin/TicketDesigner';
 import { getImageUrl } from '../../utils/imageUtils';
 import { useEvents } from '../../hooks/useEvents';
@@ -98,6 +100,11 @@ export default function AdminDashboard() {
       key: 'shows',
       icon: <TeamOutlined />,
       label: 'Shows',
+    },
+    {
+      key: 'access-gates',
+      icon: <SafetyOutlined />,
+      label: 'Puertas',
     },
     {
       key: 'venues',
@@ -166,6 +173,8 @@ export default function AdminDashboard() {
         return <AdminBanners />;
       case 'reports':
         return <FinancialReports />;
+      case 'access-gates':
+        return <AccessGatesPanel />;
       case 'users':
         return <AdminUsersPanel />;
       case 'orders':

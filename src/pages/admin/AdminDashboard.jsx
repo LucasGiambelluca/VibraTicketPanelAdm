@@ -25,6 +25,7 @@ import {
   MoreOutlined,
   PrinterOutlined
 } from '@ant-design/icons';
+import { sectionErrorLine } from '../../lib/sectionErrors';
 import CreateEvent from '../../components/CreateEvent';
 import CreateVenue from '../../components/CreateVenue';
 import EventFunctions from '../../components/EventFunctions';
@@ -557,7 +558,9 @@ function EventsAdmin() {
       if (!assignOpen || !selectedShowId) return;
       try {
         const res = await showsApi.getShowSections(selectedShowId);
-        const list = Array.isArray(res) ? res : (res?.sections || []);
+        // apiClient devuelve la respuesta axios completa, no el body.
+        const payload = res?.data ?? res;
+        const list = Array.isArray(payload) ? payload : (payload?.sections || []);
         setShowSections(list);
       } catch (e) {
         setShowSections([]);
@@ -632,7 +635,12 @@ function EventsAdmin() {
       
       let createdCount = 0;
       const errors = [];
-      
+      // Las secciones se crean de a una: si alguna falla, las anteriores ya
+      // quedaron persistidas en el servidor. Guardamos las que fallaron para
+      // dejar sólo esas en el formulario y que un reintento no reenvíe las ya
+      // creadas (eso devolvía DuplicateSectionName sobre el propio trabajo).
+      const failedSections = [];
+
       for (const section of sections) {
         const sectionData = {
           name: section.name.trim(), // ✅ Trim de espacios
@@ -640,23 +648,13 @@ function EventsAdmin() {
           capacity: Number(section.capacity),
           priceCents: Math.round(Number(section.price) * 100)
         };
-        
+
         try {
           await showsApi.createSection(selectedShowId, sectionData);
           createdCount++;
-          } catch (err) {
-          
-          // ✅ Manejo de errores específicos del backend
-          const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message;
-          const errorCode = err.response?.data?.code;
-          
-          if (errorCode === 'DuplicateSectionName') {
-            errors.push(`"${section.name}": Ya existe en este show`);
-          } else if (errorCode === 'VenueCapacityExceeded') {
-            errors.push(`"${section.name}": Excede la capacidad del venue`);
-          } else {
-            errors.push(`"${section.name}": ${errorMsg}`);
-          }
+        } catch (err) {
+          failedSections.push(section);
+          errors.push(sectionErrorLine(section.name, err));
         }
       }
 
@@ -664,15 +662,28 @@ function EventsAdmin() {
       if (createdCount > 0) {
         message.success(`${createdCount} sección(es) creada(s) correctamente`);
       }
-      
+
       if (errors.length > 0) {
+        // Sólo quedan en el formulario las que fallaron. Las creadas ya están
+        // en el servidor y se ven en el listado de secciones del show.
+        form.setFieldsValue({ sections: failedSections });
+
         message.error({
           content: (
             <div>
-              <div style={{ marginBottom: 8 }}>Errores al crear algunas secciones:</div>
+              <div style={{ marginBottom: 8 }}>
+                {createdCount > 0
+                  ? `Se crearon ${createdCount}, pero ${errors.length} no:`
+                  : 'Errores al crear las secciones:'}
+              </div>
               {errors.map((err, i) => (
                 <div key={i} style={{ fontSize: 12, marginLeft: 8 }}>• {err}</div>
               ))}
+              {createdCount > 0 && (
+                <div style={{ fontSize: 12, marginTop: 8, color: '#666' }}>
+                  Dejamos en el formulario sólo las que fallaron.
+                </div>
+              )}
             </div>
           ),
           duration: 8
@@ -688,7 +699,9 @@ function EventsAdmin() {
       // Refrescar secciones del show actual
       if (selectedShowId) {
         const res = await showsApi.getShowSections(selectedShowId);
-        const list = Array.isArray(res) ? res : (res?.sections || []);
+        // apiClient devuelve la respuesta axios completa, no el body.
+        const payload = res?.data ?? res;
+        const list = Array.isArray(payload) ? payload : (payload?.sections || []);
         setShowSections(list);
         }
       
@@ -1619,7 +1632,9 @@ function ShowsAdmin({
     // Cargar secciones existentes del show
     try {
       const res = await showsApi.getShowSections(show.id);
-      const list = Array.isArray(res) ? res : (res?.sections || []);
+      // apiClient devuelve la respuesta axios completa, no el body.
+      const payload = res?.data ?? res;
+      const list = Array.isArray(payload) ? payload : (payload?.sections || []);
       setShowSections(list);
       } catch (err) {
       setShowSections([]);
@@ -1654,7 +1669,10 @@ function ShowsAdmin({
       
       let createdCount = 0;
       const errors = [];
-      
+      // Ver nota en submitAssignTickets: la creación es de a una, así que ante
+      // un fallo parcial dejamos en el formulario sólo las que no se crearon.
+      const failedSections = [];
+
       for (const section of sections) {
         const sectionData = {
           name: section.name.trim(),
@@ -1662,37 +1680,39 @@ function ShowsAdmin({
           capacity: Number(section.capacity),
           priceCents: Math.round(Number(section.price) * 100)
         };
-        
+
         try {
           await showsApi.createSection(selectedShow.id, sectionData);
           createdCount++;
         } catch (err) {
-          // Manejo específico de errores
-          const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message;
-          const errorCode = err.response?.data?.code;
-          
-          if (errorCode === 'DuplicateSectionName' || errorMsg.includes('DuplicateSectionName')) {
-            errors.push(`"${section.name}": Ya existe en este show`);
-          } else if (errorCode === 'VenueCapacityExceeded' || errorMsg.includes('VenueCapacityExceeded')) {
-            errors.push(`"${section.name}": Excede la capacidad del venue`);
-          } else {
-            errors.push(`"${section.name}": ${errorMsg}`);
-          }
+          failedSections.push(section);
+          errors.push(sectionErrorLine(section.name, err));
         }
       }
 
       if (createdCount > 0) {
         message.success(`${createdCount} sección(es) creada(s) correctamente`);
       }
-      
+
       if (errors.length > 0) {
+        form.setFieldsValue({ sections: failedSections });
+
         message.error({
           content: (
             <div>
-              <div style={{ marginBottom: 8 }}>Errores al crear algunas secciones:</div>
+              <div style={{ marginBottom: 8 }}>
+                {createdCount > 0
+                  ? `Se crearon ${createdCount}, pero ${errors.length} no:`
+                  : 'Errores al crear las secciones:'}
+              </div>
               {errors.map((err, i) => (
                 <div key={i} style={{ fontSize: 12, marginLeft: 8 }}>• {err}</div>
               ))}
+              {createdCount > 0 && (
+                <div style={{ fontSize: 12, marginTop: 8, color: '#666' }}>
+                  Dejamos en el formulario sólo las que fallaron.
+                </div>
+              )}
             </div>
           ),
           duration: 8
@@ -1706,7 +1726,9 @@ function ShowsAdmin({
       
       // Refrescar secciones
       const res = await showsApi.getShowSections(selectedShow.id);
-      const list = Array.isArray(res) ? res : (res?.sections || []);
+      // apiClient devuelve la respuesta axios completa, no el body.
+      const payload = res?.data ?? res;
+      const list = Array.isArray(payload) ? payload : (payload?.sections || []);
       setShowSections(list);
       
       // Refrescar lista de shows
@@ -1807,7 +1829,9 @@ function ShowsAdmin({
       
       // Refrescar secciones
       const res = await showsApi.getShowSections(selectedShow.id);
-      const list = Array.isArray(res) ? res : (res?.sections || []);
+      // apiClient devuelve la respuesta axios completa, no el body.
+      const payload = res?.data ?? res;
+      const list = Array.isArray(payload) ? payload : (payload?.sections || []);
       setShowSections(list);
       
       // Refrescar lista de shows
@@ -1838,7 +1862,9 @@ function ShowsAdmin({
       
       // Refrescar secciones
       const res = await showsApi.getShowSections(selectedShow.id);
-      const list = Array.isArray(res) ? res : (res?.sections || []);
+      // apiClient devuelve la respuesta axios completa, no el body.
+      const payload = res?.data ?? res;
+      const list = Array.isArray(payload) ? payload : (payload?.sections || []);
       setShowSections(list);
       
       // Refrescar lista de shows

@@ -3,6 +3,9 @@ import { Form, Input, Button, Checkbox, message, Alert } from 'antd';
 import { ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../components/layout/ThemeProvider';
+import logoLight from '../assets/brand/vibra-logo-light.png';
+import logoDark from '../assets/brand/vibra-logo-dark.png';
 import './AdminLogin.css';
 
 export default function AdminLogin() {
@@ -11,13 +14,16 @@ export default function AdminLogin() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { login, logout } = useAuth();
+  const { theme } = useTheme();
 
   const handleSubmit = async (values) => {
     setLoading(true);
     setError(null);
     try {
       const user = await login({ email: values.email, password: values.password });
-      const allowedRoles = ['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR'];
+      // BOLETERIA incluida: tiene UI propia adentro del panel (BoxOffice) y el
+      // router la admite; excluirla acá dejaba al boletero sin poder entrar.
+      const allowedRoles = ['ADMIN', 'ORGANIZER', 'PRODUCER', 'DOOR', 'BOLETERIA'];
       if (!allowedRoles.includes(user.role)) {
         setError('Este acceso es solo para administradores, organizadores y personal autorizado.');
         message.error('Acceso denegado. Usá el login de clientes.');
@@ -41,12 +47,15 @@ export default function AdminLogin() {
     <div className="adm-login">
       <section className="adm-login__form">
         <div className="adm-login__brand">
-          <span className="mark">V</span>
-          <span>VibraTickets</span>
+          <img
+            src={theme === 'light' ? logoDark : logoLight}
+            alt="Vibra Tickets"
+            style={{ height: 44, width: 'auto' }}
+          />
         </div>
 
         <div className="adm-login__center">
-          <div className="adm-login__eyebrow">control room · v2.6</div>
+          <div className="adm-login__eyebrow">control room · v3</div>
           <h1 className="adm-login__title">
             Lo que pasa<br />
             <em>detrás</em> del show.
@@ -108,13 +117,14 @@ export default function AdminLogin() {
             <div className="adm-login__links">
               <Link to="/forgot-password">Olvidé mi contraseña</Link>
               <span>
-                ¿Cliente? <Link to="/customerlogin">Acceso público</Link>
+                {/* El login de clientes vive en el sitio público, no en este router */}
+                ¿Cliente? <a href="https://vibratickets.com/customerlogin">Acceso público</a>
               </span>
             </div>
           </Form>
         </div>
 
-        <div className="adm-login__foot">© {year} · VibraTickets Admin · v2.6 lima build</div>
+        <div className="adm-login__foot">© {year} · Vibra Tickets Admin · v3 vibra build</div>
       </section>
 
       <aside className="adm-login__art">

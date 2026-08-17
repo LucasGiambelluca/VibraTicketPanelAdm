@@ -47,11 +47,11 @@ export default function ProtectedRoute({
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        background: 'var(--color-bg)',
         gap: 16
       }}>
         <Spin size="large" />
-        <div style={{ color: '#1890ff', fontSize: 16, fontWeight: 500 }}>Verificando autenticación...</div>
+        <div style={{ color: 'var(--color-info)', fontSize: 16, fontWeight: 500 }}>Verificando autenticación...</div>
       </div>
     );
   }
@@ -71,11 +71,11 @@ export default function ProtectedRoute({
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          background: 'var(--color-bg)',
           gap: 16
         }}>
           <Spin size="large" />
-          <div style={{ color: '#1890ff', fontSize: 16, fontWeight: 500 }}>Restaurando sesión...</div>
+          <div style={{ color: 'var(--color-info)', fontSize: 16, fontWeight: 500 }}>Restaurando sesión...</div>
         </div>
       );
     }

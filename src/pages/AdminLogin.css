@@ -165,11 +165,11 @@
 .adm-login__art {
   position: relative;
   background:
-    linear-gradient(160deg, rgba(20, 25, 49, 0.55), rgba(10, 14, 24, 0.95)),
-    radial-gradient(circle at 75% 25%, var(--color-info), transparent 50%),
-    radial-gradient(circle at 25% 80%, var(--color-accent), transparent 50%),
-    var(--color-bg);
-  color: var(--color-text);
+    linear-gradient(160deg, rgba(34, 21, 66, 0.55), rgba(21, 12, 43, 0.95)),
+    radial-gradient(circle at 75% 25%, #4E9BE8, transparent 50%),
+    radial-gradient(circle at 25% 80%, #A08BC4, transparent 50%),
+    #150C2B;
+  color: #F2EFF9; /* mundo oscuro fijo, inmune al tema */
   padding: 56px;
   overflow: hidden;
   display: flex;
@@ -192,10 +192,10 @@
 .adm-login__art-chip {
   align-self: flex-start;
   padding: 6px 14px;
-  background: rgba(196, 233, 75, 0.08);
-  border: 1px solid rgba(196, 233, 75, 0.4);
+  background: rgba(160, 139, 196, 0.10);
+  border: 1px solid rgba(160, 139, 196, 0.45);
   border-radius: 999px;
-  color: var(--color-accent);
+  color: #A08BC4;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -209,7 +209,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: #A08BC4;
   box-shadow: 0 0 12px var(--color-accent);
   animation: pulse 2s infinite;
 }
@@ -220,15 +220,15 @@
   font-weight: 800;
   line-height: 0.9;
   letter-spacing: -0.045em;
-  color: var(--color-text);
+  color: #F2EFF9;
 }
 .adm-login__art-quote em {
   font-style: normal;
-  color: var(--color-accent);
+  color: #A08BC4;
   font-weight: 900;
 }
 .adm-login__art-quote .cy {
-  color: var(--color-info);
+  color: #4E9BE8;
 }
 
 .adm-login__art-meta {
@@ -239,7 +239,7 @@
   padding-top: 20px;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--color-text-muted);
+  color: rgba(242,239,249,0.55);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -248,7 +248,7 @@
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-text);
+  color: #F2EFF9;
   text-transform: none;
   letter-spacing: -0.01em;
   margin-top: 6px;

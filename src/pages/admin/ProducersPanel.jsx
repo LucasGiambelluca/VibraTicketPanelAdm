@@ -9,6 +9,7 @@ import {
   Modal,
   Typography,
   message,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -68,6 +69,9 @@ export default function ProducersPanel() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // true cuando /producers/mp-summary no existe (feature de split MP sin
+  // deployar): se lista igual pero las acciones de vinculación se apagan.
+  const [mpUnavailable, setMpUnavailable] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // Modal de link OAuth generado
@@ -89,7 +93,30 @@ export default function ProducersPanel() {
         ? payload
         : (payload?.rows || payload?.data || payload?.producers || []);
       setRows(Array.isArray(list) ? list : []);
+      setMpUnavailable(false);
     } catch (err) {
+      // /producers/mp-summary vive en la feature de split MP (sin deployar).
+      // Mientras no exista (404), caemos al listado simple de /producers para
+      // que la pantalla sirva igual: nombres + estado "Sin vincular", sin cifras.
+      if (err.response?.status === 404) {
+        setMpUnavailable(true);
+        try {
+          const res = await producersApi.getProducers();
+          const payload = res?.data ?? res;
+          const list = payload?.producers || payload?.data || (Array.isArray(payload) ? payload : []);
+          setRows((Array.isArray(list) ? list : []).map((p) => ({
+            producer_id: p.id,
+            producer_name: p.name,
+            mp_status: null,
+            gross_cents: null,
+            platform_fee_cents: null,
+            producer_net_cents: null
+          })));
+          return;
+        } catch (fallbackErr) {
+          // sigue al manejo de error normal
+        }
+      }
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Error al cargar productoras';
       setError(msg);
     } finally {
@@ -237,15 +264,18 @@ export default function ProducersPanel() {
         return (
           <Space>
             {!isLinked && (
-              <Button
-                size="small"
-                type="primary"
-                icon={<LinkOutlined />}
-                loading={busy}
-                onClick={() => handleCreateLink(row)}
-              >
-                Vincular MP
-              </Button>
+              <Tooltip title={mpUnavailable ? 'La vinculación de MercadoPago se habilita con el split de pagos (todavía no deployado)' : ''}>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<LinkOutlined />}
+                  loading={busy}
+                  disabled={mpUnavailable}
+                  onClick={() => handleCreateLink(row)}
+                >
+                  Vincular MP
+                </Button>
+              </Tooltip>
             )}
             {canRevoke && (
               <Button

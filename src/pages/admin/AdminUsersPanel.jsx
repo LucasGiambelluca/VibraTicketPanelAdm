@@ -777,7 +777,7 @@ const AdminUsersPanel = () => {
               />
 
               {/* Mobile Cards View */}
-              <div className="mobile-card-list" style={{ display: 'none' }}>
+              <div className="mobile-card-list">
                 {loading ? (
                   <div style={{ textAlign: 'center', padding: '40px 0' }}>
                     <Spin size="large" />

@@ -37,19 +37,26 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
-      
-      // Solo limpiar sesión y redirigir si es un endpoint de LOGIN
-      // NO incluir /users/me porque se usa para validación en segundo plano
-      // y no debería causar logout si falla
+
+      // /auth/login: credenciales malas — limpiar y dejar que el form muestre
+      // el error. /users/me: chequeo de sesión en segundo plano — lo maneja
+      // quien lo llamó, sin desloguear.
       const isLoginEndpoint = url.includes('/auth/login');
-      
+      const isBackgroundCheck = url.includes('/users/me');
+
       if (isLoginEndpoint) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
-        // No redirigir aquí, dejar que el componente de login maneje el error
+      } else if (!isBackgroundCheck) {
+        // Cualquier otro 401 = sesión vencida. Antes esto fallaba en silencio
+        // (cada pantalla mostraba errores sueltos sin desloguear). Se limpia
+        // la sesión y se va al login, salvo que ya estemos ahí (evita loops).
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.assign('/login?expired=1');
+        }
       }
-      // Para otros endpoints (incluyendo /users/me), el componente que hizo la llamada manejará el error
     }
     return Promise.reject(error);
   }

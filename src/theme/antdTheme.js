@@ -1,0 +1,116 @@
+// Tema de Ant Design por modo. Espejo de los tokens CSS de styles/theme.css:
+// si se retoca un color acá, retocarlo también allá (misma paleta de marca).
+import { theme as antTheme } from 'antd';
+
+const shared = {
+  fontFamily: "'Space Grotesk', -apple-system, system-ui, BlinkMacSystemFont, sans-serif",
+  fontSize: 14,
+  borderRadius: 10,
+  borderRadiusLG: 16,
+  controlHeight: 38,
+  controlHeightLG: 46,
+  controlHeightSM: 30,
+  wireframe: false,
+};
+
+const dark = {
+  algorithm: antTheme.darkAlgorithm,
+  token: {
+    ...shared,
+    colorPrimary: '#A08BC4',
+    colorInfo: '#4E9BE8',
+    colorSuccess: '#7ED08C',
+    colorWarning: '#E0AB46',
+    colorError: '#E37C5C',
+    colorLink: '#4E9BE8',
+    colorBgBase: '#150C2B',
+    colorBgLayout: '#150C2B',
+    colorBgContainer: '#221542',
+    colorBgElevated: '#2A1B54',
+    colorBgSpotlight: '#342664',
+    colorBorder: '#372A5E',
+    colorBorderSecondary: '#2A1B54',
+    colorText: '#F2EFF9',
+    colorTextSecondary: '#A99FC8',
+    colorTextTertiary: '#7A6F9E',
+    colorTextQuaternary: '#584D7B',
+  },
+  components: {
+    Layout: { bodyBg: '#150C2B', headerBg: '#1B1038', siderBg: '#1B1038' },
+    Card: { borderRadiusLG: 16, paddingLG: 20, colorBgContainer: '#221542' },
+    Button: { fontWeight: 600, primaryShadow: 'none' },
+    Input: { paddingBlock: 8, colorBgContainer: '#1B1038' },
+    InputNumber: { colorBgContainer: '#1B1038' },
+    Select: { colorBgContainer: '#1B1038', optionSelectedBg: '#2A1B54' },
+    DatePicker: { colorBgContainer: '#1B1038' },
+    Modal: { borderRadiusLG: 16, contentBg: '#221542', headerBg: '#221542' },
+    Table: {
+      headerBg: '#2A1B54',
+      headerColor: '#A99FC8',
+      rowHoverBg: '#2A1B54',
+      borderColor: '#372A5E',
+      colorBgContainer: '#221542',
+    },
+    Tag: { defaultBg: '#2A1B54', defaultColor: '#A99FC8' },
+    Drawer: { colorBgElevated: '#1B1038' },
+    Menu: { itemSelectedBg: '#2A1B54', itemSelectedColor: '#A08BC4', itemColor: '#A99FC8' },
+    Switch: { handleBg: '#150C2B' },
+    Tabs: { itemSelectedColor: '#A08BC4', inkBarColor: '#A08BC4' },
+    Statistic: { colorTextHeading: '#F2EFF9' },
+    Popover: { colorBgElevated: '#2A1B54' },
+    Tooltip: { colorBgSpotlight: '#2A1B54' },
+  },
+};
+
+const light = {
+  algorithm: antTheme.defaultAlgorithm,
+  token: {
+    ...shared,
+    colorPrimary: '#56358C',
+    colorInfo: '#0A6FD1',
+    colorSuccess: '#1E7F3C',
+    colorWarning: '#A15C07',
+    colorError: '#B3261E',
+    colorLink: '#0A6FD1',
+    colorBgBase: '#F5F2FB',
+    colorBgLayout: '#F5F2FB',
+    colorBgContainer: '#FFFFFF',
+    colorBgElevated: '#FFFFFF',
+    colorBgSpotlight: '#2A1B54',
+    colorBorder: '#E2DBEF',
+    colorBorderSecondary: '#EDE7F6',
+    colorText: '#1B1330',
+    colorTextSecondary: '#5C5474',
+    colorTextTertiary: '#8C86A0',
+    colorTextQuaternary: '#B4ACC9',
+  },
+  components: {
+    Layout: { bodyBg: '#F5F2FB', headerBg: '#FFFFFF', siderBg: '#FFFFFF' },
+    Card: { borderRadiusLG: 16, paddingLG: 20, colorBgContainer: '#FFFFFF' },
+    Button: { fontWeight: 600, primaryShadow: 'none' },
+    Input: { paddingBlock: 8, colorBgContainer: '#FFFFFF' },
+    InputNumber: { colorBgContainer: '#FFFFFF' },
+    Select: { colorBgContainer: '#FFFFFF', optionSelectedBg: '#EDE6F8' },
+    DatePicker: { colorBgContainer: '#FFFFFF' },
+    Modal: { borderRadiusLG: 16, contentBg: '#FFFFFF', headerBg: '#FFFFFF' },
+    Table: {
+      headerBg: '#F2EEF9',
+      headerColor: '#5C5474',
+      rowHoverBg: '#F5F2FB',
+      borderColor: '#E2DBEF',
+      colorBgContainer: '#FFFFFF',
+    },
+    Tag: { defaultBg: '#F2EEF9', defaultColor: '#5C5474' },
+    Drawer: { colorBgElevated: '#FFFFFF' },
+    Menu: { itemSelectedBg: '#EDE6F8', itemSelectedColor: '#56358C', itemColor: '#5C5474' },
+    Switch: { handleBg: '#FFFFFF' },
+    Tabs: { itemSelectedColor: '#56358C', inkBarColor: '#56358C' },
+    Statistic: { colorTextHeading: '#1B1330' },
+    Popover: { colorBgElevated: '#FFFFFF' },
+    Tooltip: { colorBgSpotlight: '#2A1B54' },
+  },
+};
+
+export function getAntdTheme(mode) {
+  return mode === 'light' ? light : dark;
+}

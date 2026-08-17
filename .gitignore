@@ -29,3 +29,8 @@ pnpm-debug.log*
 # Cache
 .cache/
 .eslintcache
+
+# Backups locales — nunca commitearlos
+*.bak_*
+src.bak_*/
+.prod-tmp/

@@ -1,27 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Typography, Button, Table, Space, Form, Input, Modal, Card, Select, DatePicker, Upload, message, Tag, Row, Col, Statistic, Avatar, Spin, Divider, Grid, Dropdown, Drawer } from 'antd';
+import { Typography, Button, Table, Space, Form, Input, Modal, Card, Select, DatePicker, Upload, message, Tag, Row, Col, Avatar, Spin, Divider, Grid, Dropdown, Drawer } from 'antd';
 import AdminShell from '../../components/layout/AdminShell';
+import { allowedKeysForRole, defaultKeyForRole } from '../../components/layout/navConfig';
 import DashboardHome from './DashboardHome';
-import { 
-  DashboardOutlined, 
-  CalendarOutlined, 
-  TeamOutlined, 
-  SettingOutlined,
+import {
+  CalendarOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
   UploadOutlined,
   UserOutlined,
-  LogoutOutlined,
-  HeartOutlined,
   EnvironmentOutlined,
-  PictureOutlined,
-  BarChartOutlined,
-  ShoppingCartOutlined,
-  TagsOutlined,
   ReloadOutlined,
-  DollarOutlined,
   MoreOutlined,
   PrinterOutlined
 } from '@ant-design/icons';
@@ -55,29 +46,36 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import dayjs from 'dayjs';
 import MobileCardItem from '../../components/MobileCardItem';
-import logo from '../../assets/VibraTicketLogo.png';
 
 const { Title, Text } = Typography;
-const { Sider, Content, Header } = Layout;
 const { Option } = Select;
 
 export default function AdminDashboard() {
   const [selectedMenu, setSelectedMenu] = useState('dashboard');
-  const [collapsed, setCollapsed] = useState(false);
 
   // Hooks
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  // BOLETERIA: role arrives async (user is null on first render until useAuth useEffect fires)
-  const isBoleteria = user?.role === 'BOLETERIA';
+  // El rol llega async (user es null en el primer render hasta que useAuth
+  // restaura la sesión). Cuando llega, si la pantalla actual no está permitida
+  // para ese rol, saltamos a su pantalla inicial (matriz en navConfig).
+  const role = user?.role;
+  const allowedKeys = role ? allowedKeysForRole(role) : null;
 
-  // When role arrives and we're still on the default 'dashboard', switch to 'boxoffice'
   useEffect(() => {
-    if (user?.role === 'BOLETERIA' && selectedMenu === 'dashboard') {
-      setSelectedMenu('boxoffice');
+    if (role && !allowedKeysForRole(role).has(selectedMenu)) {
+      setSelectedMenu(defaultKeyForRole(role));
     }
-  }, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [role, selectedMenu]);
+
+  // Navegación siempre validada contra la matriz del rol — aunque un hijo
+  // pase una key que el rol no puede ver, no se navega.
+  const handleNavigate = (key) => {
+    if (!role || allowedKeysForRole(role).has(key)) {
+      setSelectedMenu(key);
+    }
+  };
 
   // Shared Hooks for children
   const venuesHook = useVenues({ limit: 100, sortBy: 'name', sortOrder: 'ASC' });
@@ -89,71 +87,18 @@ export default function AdminDashboard() {
     navigate('/login');
   };
 
-  const menuItems = [
-    {
-      key: 'events',
-      icon: <CalendarOutlined />,
-      label: 'Eventos',
-    },
-    {
-      key: 'shows',
-      icon: <TeamOutlined />,
-      label: 'Shows',
-    },
-    {
-      key: 'venues',
-      icon: <EnvironmentOutlined />,
-      label: 'Venues',
-    },
-    {
-      key: 'banners',
-      icon: <PictureOutlined />,
-      label: 'Banners',
-    },
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Reportes',
-    },
-    {
-      key: 'users',
-      icon: <UserOutlined />,
-      label: 'Usuarios',
-    },
-    {
-      key: 'orders',
-      icon: <ShoppingCartOutlined />,
-      label: 'Órdenes',
-    },
-    {
-      key: 'discount-codes',
-      icon: <TagsOutlined />,
-      label: 'Códigos de Descuento',
-    },
-    {
-      key: 'payments-monitor',
-      icon: <DollarOutlined />,
-      label: 'Monitor de Pagos',
-    },
-    {
-      key: 'health',
-      icon: <HeartOutlined />,
-      label: 'Estado del Sistema',
-    },
-    {
-      key: 'mercadopago',
-      icon: <SettingOutlined />,
-      label: 'MercadoPago',
-    },
-  ];
+  // El menú vivo es components/layout/navConfig.jsx (via AdminShell→Sidebar).
+  // Acá había un menuItems duplicado y desincronizado que nunca se renderizaba.
 
   const renderContent = () => {
-    // BOLETERIA can only access BoxOffice regardless of selectedMenu
-    if (isBoleteria) return <BoxOffice />;
+    // Sin rol cargado: nada (default cerrado). Rol sin permiso sobre la
+    // pantalla actual: nada — el useEffect de arriba lo redirige a su default.
+    if (!role) return <Spin style={{ display: 'block', margin: '80px auto' }} />;
+    if (allowedKeys && !allowedKeys.has(selectedMenu)) return null;
 
     switch (selectedMenu) {
       case 'dashboard':
-        return <DashboardHome onNavigate={setSelectedMenu} />;
+        return <DashboardHome onNavigate={handleNavigate} />;
       case 'venues':
         return <VenuesAdmin />;
       case 'events':
@@ -188,12 +133,12 @@ export default function AdminDashboard() {
       case 'settings':
         return <SettingsAdmin />;
       default:
-        return <DashboardHome onNavigate={setSelectedMenu} />;
+        return null;
     }
   };
 
   return (
-    <AdminShell selectedKey={selectedMenu} onNavigate={setSelectedMenu}>
+    <AdminShell selectedKey={selectedMenu} onNavigate={handleNavigate}>
       {renderContent()}
     </AdminShell>
   );
@@ -247,6 +192,7 @@ function EventsAdmin() {
     editForm.setFieldsValue({
       name: event.name,
       description: event.description,
+      category: event.category || undefined,
       status: event.status || 'PUBLISHED'
     });
     setEditModalOpen(true);
@@ -755,7 +701,7 @@ function EventsAdmin() {
       />
 
       {/* Mobile Cards View */}
-      <div className="mobile-card-list" style={{ display: 'none' }}>
+      <div className="mobile-card-list">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <Spin size="large" />
@@ -1130,10 +1076,22 @@ function EventsAdmin() {
               label="Descripción"
               name="description"
             >
-              <Input.TextArea 
-                rows={4} 
+              <Input.TextArea
+                rows={4}
                 placeholder="Descripción del evento"
               />
+            </Form.Item>
+
+            {/* Debe coincidir con las categorías del home del sitio público */}
+            <Form.Item
+              label="Categoría"
+              name="category"
+            >
+              <Select placeholder="Sin categoría" allowClear>
+                {['Música', 'Festivales', 'Deportes', 'Teatro', 'Experiencias', 'Familiar'].map((c) => (
+                  <Option key={c} value={c}>{c}</Option>
+                ))}
+              </Select>
             </Form.Item>
 
             <Form.Item
@@ -2150,7 +2108,7 @@ function ShowsAdmin({
         />
 
         {/* Mobile Cards View */}
-        <div className="mobile-card-list" style={{ display: 'none' }}>
+        <div className="mobile-card-list">
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <Spin size="large" />
@@ -2991,7 +2949,7 @@ function VenuesAdmin() {
       />
 
       {/* Mobile Cards View */}
-      <div className="mobile-card-list" style={{ display: 'none' }}>
+      <div className="mobile-card-list">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <Spin size="large" />

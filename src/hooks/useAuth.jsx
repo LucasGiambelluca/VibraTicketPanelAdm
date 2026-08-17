@@ -124,7 +124,9 @@ export const AuthProvider = ({ children }) => {
       
       return userData;
     } catch (err) {
-      console.error('❌ Error detallado en login:', err);
+      // OJO: no loguear `err` entero — err.config.data lleva email y password
+      // en texto plano (quedaban impresos en la consola en cada login fallido).
+      console.error('❌ Error en login:', err.response?.status, err.response?.data?.message || err.message);
       const errorMessage = err.response?.data?.message || err.message || 'Error al iniciar sesión';
       setError(errorMessage);
       throw err;

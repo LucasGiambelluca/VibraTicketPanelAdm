@@ -1,30 +1,31 @@
 import React from 'react';
 import { Tooltip } from 'antd';
-import { NAV_SECTIONS } from './navConfig';
+import { navSectionsForRole } from './navConfig';
 import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from './ThemeProvider';
+import logoLight from '../../assets/brand/vibra-logo-light.png';
+import logoDark from '../../assets/brand/vibra-logo-dark.png';
 
 export default function Sidebar({ collapsed, onToggle, selectedKey, onNavigate, embedded }) {
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
+  // Wordmark blanco sobre fondo oscuro; negro sobre papel claro
+  const brandLogo = theme === 'light' ? logoDark : logoLight;
   const initial = (user?.name || user?.email || 'A').trim().charAt(0).toUpperCase();
   const roleLabel = (user?.role || 'staff').toLowerCase();
   const isCollapsed = collapsed && !embedded;
 
-  // BOLETERIA only sees the Boletería item
-  const isBoleteria = user?.role === 'BOLETERIA';
-  const visibleSections = isBoleteria
-    ? [{ label: 'Ventas', items: NAV_SECTIONS.flatMap((s) => s.items).filter((i) => i.key === 'boxoffice') }]
-    : NAV_SECTIONS;
+  // Cada rol ve solo sus ítems (matriz en navConfig). Un productor administra
+  // sus eventos/funciones y no toca el panel general. Mientras el rol no cargó
+  // (primer render) no se muestra NADA — default cerrado, nunca abierto.
+  const visibleSections = user?.role ? navSectionsForRole(user.role) : [];
 
   return (
     <aside className="shell-sidebar" data-collapsed={isCollapsed ? 'true' : 'false'}>
       {!embedded && (
         <div className="shell-brand">
-          <div className="shell-brand-mark" aria-hidden>V</div>
-          <div className="shell-brand-text">
-            <span className="shell-brand-name">VibraTickets</span>
-            <span className="shell-brand-sub">control · ar</span>
-          </div>
+          <img src={brandLogo} alt="Vibra Tickets" className="shell-brand-logo" />
         </div>
       )}
 
